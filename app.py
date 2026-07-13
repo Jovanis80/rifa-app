@@ -216,7 +216,7 @@ elif seccion == "Panel Administrador":
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
-            # Selector limpio e inmutable para evitar desajustes en el renderizado
+            # Selector limpio basado en la lista de números pendientes
             lista_numeros_pendientes = pendientes["numero"].tolist()
             num_seleccionado = st.selectbox(
                 "Selecciona el número de boleto a procesar:", 
@@ -224,7 +224,7 @@ elif seccion == "Panel Administrador":
                 key="select_pedido_admin"
             )
             
-            # Obtención segura de los registros asociados usando posicionamiento escalar (.iloc[0])
+            # CORRECCIÓN DE INDEXACIÓN: .iloc[0] para extraer los datos de la fila individual de forma segura
             fila_datos = pendientes[pendientes["numero"] == num_seleccionado].iloc[0]
             nom_seleccionado = fila_datos["nombre"]
             tel_seleccionado = fila_datos["telefono"]
@@ -273,3 +273,5 @@ elif seccion == "Panel Administrador":
                     st.success(f"Boleto {num_baja} borrado de los registros.")
                     st.rerun()
                 else:
+                    st.error("El número ingresado no existe en los registros actuales.")
+            else:
