@@ -108,6 +108,9 @@ def generar_pdf(nombre, telefono, numeros):
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
+if "admin_login" not in st.session_state:
+    st.session_state.admin_login = False
+    
 # NAVEGACIÓN LATERAL ESTÁTICA
 st.sidebar.title("Navegación 🧭")
 seccion = st.sidebar.radio("Ir a:", ["Reservar Boletos", "Panel Administrador"], key="radio_navigation")
