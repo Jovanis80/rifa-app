@@ -194,24 +194,25 @@ elif seccion == "Panel Administrador":
             else:
                 st.error("❌ Contraseña incorrecta")
 
-    else:
+  else:
 
-        st.success("✅ Acceso verificado")
-       
- if st.button("Cerrar sesión"):
+    st.success("✅ Acceso verificado")
+
+    if st.button("Cerrar sesión"):
         st.session_state.admin_login = False
         st.rerun()
 
-        # Contenedor inmutable para PDFs generados
-        if st.session_state.pdf_admin is not None:
-            data = st.session_state.pdf_admin
-            st.download_button(
-                label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
-                data=data["file"],
-                file_name=f"comprobante_{data['telefono']}.pdf",
-                mime="application/pdf",
-                key="download_pdf_final"
-            )
+    # Contenedor inmutable para PDFs generados
+    if st.session_state.pdf_admin is not None:
+        data = st.session_state.pdf_admin
+
+        st.download_button(
+            label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
+            data=data["file"],
+            file_name=f"comprobante_{data['telefono']}.pdf",
+            mime="application/pdf",
+            key="download_pdf_final"
+        )
             if st.button("Limpiar descarga anterior", key="clear_pdf_final"):
                 st.session_state.pdf_admin = None
                 st.rerun()
