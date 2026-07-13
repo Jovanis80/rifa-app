@@ -225,8 +225,8 @@ elif seccion == "Panel Administrador":
                     guardar(df)
                     exportar_excel(df)
                     
-                    cliente_df = df[(df["telefono"] == tel_seleccionado) & (df["estado"] == "Vendido")]
-                    numeros_cliente = cliente_df["numero"].tolist()
+               if "pdf_admin" not in st.session_state:
+    st.session_state.pdf_admin = None
                     
                     pdf_bytes = generar_pdf(nom_seleccionado, tel_seleccionado, numeros_cliente)
                     st.session_state.pdf_admin = {
