@@ -108,7 +108,7 @@ def generar_pdf(nombre, telefono, numeros):
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
-# NAVEGACIÓN LATERAL ESTÁTICA (Inmune al bug de React removeChild)
+# NAVEGACIÓN LATERAL ESTÁTICA
 st.sidebar.title("Navegación 🧭")
 seccion = st.sidebar.radio("Ir a:", ["Reservar Boletos", "Panel Administrador"], key="radio_navigation")
 
@@ -200,7 +200,7 @@ elif seccion == "Panel Administrador":
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
-            # Lista plana de textos descriptivos para el selector
+            # Lista plana de textos explicativos para el selector
             opciones_pendientes = [
                 f"Boleto: {row['numero']} | Cliente: {row['nombre']} | Tel: {row['telefono']}" 
                 for _, row in pendientes.iterrows()
@@ -212,7 +212,7 @@ elif seccion == "Panel Administrador":
                 key="select_pedido_admin"
             )
             
-            # PARSING SEGURO: Extraer los datos correctos por medio de split estructural sin romper la variable
+            # CORRECCIÓN DE PARSING ELIMINANDO EL MÉTODO MAL APLICADO
             partes = [p.strip() for p in seleccion_admin.split("|")]
             num_seleccionado = partes[0].replace("Boleto:", "").strip()
             nom_seleccionado = partes[1].replace("Cliente:", "").strip()
