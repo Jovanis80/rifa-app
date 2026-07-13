@@ -175,7 +175,7 @@ if seccion == "Reservar Boletos":
 # ========================
 # SECCIÓN: ADMINISTRADOR
 # ========================
-elif seccion == "Panel Administrador":
+    elif seccion == "Panel Administrador":
 
     st.title("🔒 PANEL ADMINISTRADOR")
 
