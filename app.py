@@ -12,9 +12,7 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 DB_FILE = "rifa_db.json"
 PRECIO = 3000
-
-# CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
-ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+ADMIN_PASSWORD = "JVR_2026_SEGUR0"
 
 # ========================
 # BASE DE DATOS RESISTENTE
@@ -222,6 +220,7 @@ elif seccion == "Panel Administrador":
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
+            # Lista plana de textos explicativos para el selector
             opciones_pendientes = [
                 f"Boleto: {row['numero']} | Cliente: {row['nombre']} | Tel: {row['telefono']}" 
                 for _, row in pendientes.iterrows()
@@ -233,7 +232,7 @@ elif seccion == "Panel Administrador":
                 key="select_pedido_admin"
             )
             
-            # PARSING SEGURO POR POSICIÓN ELEMENTAL
+            # CORRECCIÓN DEFINITIVA DE MANEJO DE STRINGS (Acceso por índices individuales de la lista)
             partes = [p.strip() for p in seleccion_admin.split("|")]
             num_seleccionado = partes[0].replace("Boleto:", "").strip()
             nom_seleccionado = partes[1].replace("Cliente:", "").strip()
@@ -280,4 +279,3 @@ elif seccion == "Panel Administrador":
                     exportar_excel(df)
                     st.success(f"Boleto {num_baja} borrado de los registros.")
                     st.rerun()
-                else:
