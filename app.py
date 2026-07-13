@@ -176,10 +176,27 @@ if seccion == "Reservar Boletos":
 # SECCIÓN: ADMINISTRADOR
 # ========================
 elif seccion == "Panel Administrador":
-    st.title("🔒 PANEL ADMINISTRADOR")
-    clave = st.text_input("Introduce la contraseña de acceso", type="password", key="pwd_admin_field")
 
-    if clave == ADMIN_PASSWORD:
+    st.title("🔒 PANEL ADMINISTRADOR")
+
+    if not st.session_state.admin_login:
+
+        clave = st.text_input(
+            "Introduce la contraseña",
+            type="password",
+            key="pwd_admin_field"
+        )
+
+        if st.button("Ingresar"):
+            if clave == ADMIN_PASSWORD:
+                st.session_state.admin_login = True
+                st.rerun()
+            else:
+                st.error("❌ Contraseña incorrecta")
+
+    else:
+
+        st.success("✅ Acceso verificado")
         st.success("Acceso verificado.")
 
         # Contenedor inmutable para PDFs generados
