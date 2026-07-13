@@ -55,7 +55,7 @@ def generar_pdf(nombre, telefono, numeros):
 
     # Título principal en Rojo
     pdf.set_font("Arial", "B", 16)
-    pdf.set_text_color(180, 0, 0) # Color Rojo para J.V.R PREMIUM RIFA
+    pdf.set_text_color(180, 0, 0) 
     pdf.cell(0, 12, "J.V.R PREMIUM RIFA", ln=1, align="C")
     pdf.ln(5)
 
@@ -68,7 +68,7 @@ def generar_pdf(nombre, telefono, numeros):
 
     # Subtítulo de boletos en Rojo
     pdf.set_font("Arial", "B", 13)
-    pdf.set_text_color(180, 0, 0) # Color Rojo para NUMERO DE BOLETO
+    pdf.set_text_color(180, 0, 0) 
     pdf.cell(0, 8, "NUMERO DE BOLETO", ln=1)
     
     # Números adquiridos en negro y negrita
@@ -192,17 +192,18 @@ with tab2:
     if clave == ADMIN_PASSWORD:
         st.success("Acceso concedido ✅")
 
-        # CONTROL DE DESCARGAS DE COMPROBANTES (Se muestra arriba para que no desaparezca con el rerun)
+        # CONTENEDOR FIJO PARA EVITAR ERRORES DE REMOVECHILD
+        zona_descarga = st.container()
+        
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
-            st.download_button(
+            zona_descarga.download_button(
                 label=f"📄 Descargar comprobante de {data['nombre']}",
                 data=data["file"],
                 file_name=f"comprobante_{data['telefono']}.pdf",
-                mime="application/pdf",
-                key="download_pdf_btn"
+                mime="application/pdf"
             )
-            if st.button("Limpiar descarga actual"):
+            if zona_descarga.button("Limpiar descarga"):
                 st.session_state.pdf_admin = None
                 st.rerun()
 
@@ -223,22 +224,21 @@ with tab2:
                 # APROBAR
                 with col1:
                     if st.button(f"✅ Aprobar {row['numero']}", key=f"a{i}"):
+                        # Modificar en el DataFrame en memoria inmediatamente
                         df.loc[df["numero"] == row["numero"], "estado"] = "Vendido"
                         guardar(df)
                         exportar_excel(df)
                         
-                        # Buscar todos los números vendidos acumulados del cliente
+                        # Generación segura del archivo PDF
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
-
-                        # Generar el PDF y guardarlo en el estado de sesión
                         pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
+                        
                         st.session_state.pdf_admin = {
                             "file": pdf_bytes,
                             "telefono": row["telefono"],
                             "nombre": row["nombre"]
                         }
-                        st.success("✅ Número aprobado")
                         st.rerun()
 
                 # RECHAZAR RESERVA
@@ -252,7 +252,6 @@ with tab2:
         st.write("### 📋 Base de Datos Actual")
         st.dataframe(df)
 
-        # ELIMINACIÓN DE REGISTROS INDIVIDUALES (Líneas completadas)
         st.write("### ❌ Eliminar número específico")
         num = st.text_input("Ingresa el número a dar de baja (ej: 045)")
 
