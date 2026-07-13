@@ -197,7 +197,10 @@ elif seccion == "Panel Administrador":
     else:
 
         st.success("✅ Acceso verificado")
-        st.success("Acceso verificado.")
+       
+ if st.button("Cerrar sesión"):
+        st.session_state.admin_login = False
+        st.rerun()
 
         # Contenedor inmutable para PDFs generados
         if st.session_state.pdf_admin is not None:
