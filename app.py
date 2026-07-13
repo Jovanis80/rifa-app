@@ -6,15 +6,13 @@ from fpdf import FPDF
 from datetime import datetime
 
 # ========================
-# CONFIGURACIÓN DE PÁGINA
+# CONFIG
 # ========================
 st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 DB_FILE = "rifa_db.json"
 PRECIO = 3000
-
-# CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
-ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+ADMIN_PASSWORD = "JVR_2026_SEGUR0"
 
 # ========================
 # BASE DE DATOS RESISTENTE
@@ -42,11 +40,11 @@ def guardar(df):
 def exportar_excel(df):
     df.to_excel("compradores.xlsx", index=False)
 
-# Carga inicial de datos
+# Inicialización segura de los datos
 df = cargar()
 
 # ========================
-# GENERADOR DE PDF
+# PDF CORREGIDO CON NUEVO DISEÑO Y FECHA
 # ========================
 def generar_pdf(nombre, telefono, numeros):
     pdf = FPDF()
@@ -55,32 +53,38 @@ def generar_pdf(nombre, telefono, numeros):
     fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
     total = PRECIO * len(numeros)
 
+    # Título principal en Rojo
     pdf.set_font("Arial", "B", 16)
-    pdf.set_text_color(180, 0, 0) 
+    pdf.set_text_color(180, 0, 0) # Color Rojo para J.V.R PREMIUM RIFA
     pdf.cell(0, 12, "J.V.R PREMIUM RIFA", ln=1, align="C")
     pdf.ln(5)
 
+    # Restablecer color a negro para los datos del cliente
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", "", 11)
     pdf.cell(0, 7, f"Nombre: {nombre}", ln=1)
     pdf.cell(0, 7, f"Telefono: {telefono}", ln=1)
     pdf.ln(5)
 
+    # Subtítulo de boletos en Rojo
     pdf.set_font("Arial", "B", 13)
-    pdf.set_text_color(180, 0, 0) 
+    pdf.set_text_color(180, 0, 0) # Color Rojo para NUMERO DE BOLETO
     pdf.cell(0, 8, "NUMERO DE BOLETO", ln=1)
     
+    # Números adquiridos en negro y negrita
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 8, " - ".join(numeros), ln=1)
     pdf.ln(4)
 
+    # Bloque de fecha y costos
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, 7, f"Fecha: {fecha_actual}", ln=1)
     pdf.set_font("Arial", "", 11)
     pdf.cell(0, 7, f"Total pagado: ${total}", ln=1)
     pdf.ln(5)
 
+    # Información de premios
     pdf.cell(0, 6, "Premio principal:", ln=1)
     pdf.cell(0, 6, "Televisor Smart TV Sankey 42 pulgadas", ln=1)
     pdf.cell(0, 6, "Android Full HD", ln=1)
@@ -90,43 +94,43 @@ def generar_pdf(nombre, telefono, numeros):
     pdf.cell(0, 6, "$1.300.000 en efectivo", ln=1)
     pdf.ln(5)
 
+    # FECHA DEL SORTEO OBLIGATORIA
     pdf.cell(0, 6, "Sorteo: 30 de octubre", ln=1)
     pdf.cell(0, 6, "Loteria de Medellin", ln=1)
     pdf.ln(5)
 
+    # Datos del responsable organizador en negrita
     pdf.set_font("Arial", "B", 11)
     pdf.cell(0, 6, "Responsable: Jovanis Vanegas Ropain", ln=1)
     pdf.cell(0, 6, "Contacto: 3126613272", ln=1)
     pdf.ln(8)
 
+    # Mensaje de despedida en cursiva
     pdf.set_font("Arial", "I", 10)
     pdf.cell(0, 10, "Gracias por tu compra, mucha suerte!", ln=1)
 
     return pdf.output(dest="S").encode("latin-1")
 
 # ========================
-# CONTROL DE ESTADOS (SESSION STATE)
+# SESSION STATE
 # ========================
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
-if "admin_login" not in st.session_state:
-    st.session_state.admin_login = False
-
 # ========================
-# INTERFAZ PRINCIPAL POR PESTAÑAS
+# INTERFAZ PRINCIPAL
 # ========================
 st.title("🎟️ RIFA PREMIUM")
 
 tab1, tab2 = st.tabs(["Reservar", "Administrador"])
 
 # ========================
-# PESTAÑA 1: RESERVAS
+# APARTADO RESERVAS
 # ========================
 with tab1:
-    cantidad = st.number_input("¿Cuántos números quieres?", 1, 20, 1, key="input_cant")
-    nombre = st.text_input("Nombre", key="input_nom")
-    telefono = st.text_input("Telefono", key="input_tel")
+    cantidad = st.number_input("¿Cuántos números quieres?", 1, 20, 1)
+    nombre = st.text_input("Nombre")
+    telefono = st.text_input("Telefono")
 
     todos = [f"{i:03d}" for i in range(1000)]
     
@@ -139,6 +143,7 @@ with tab1:
 
     opciones = []
     mapa = {}
+
     for n in todos:
         if n in vendidos:
             label = f"🔴 {n} (Vendido)"
@@ -149,13 +154,13 @@ with tab1:
         opciones.append(label)
         mapa[label] = n
 
-    seleccion = st.multiselect("Selecciona números", opciones, key="multi_num")
+    seleccion = st.multiselect("Selecciona números", opciones)
     numeros = [mapa[s] for s in seleccion if mapa[s] not in vendidos]
 
     total = len(numeros) * PRECIO
     st.success(f"💰 Total a pagar: ${total}")
 
-    if st.button("Reservar", key="btn_reservar"):
+    if st.button("Reservar"):
         if not nombre or not telefono:
             st.error("Completa los datos")
         elif len(numeros) != cantidad:
@@ -178,27 +183,16 @@ with tab1:
             st.rerun()
 
 # ========================
-# PESTAÑA 2: ADMINISTRADOR
+# APARTADO ADMINISTRADOR
 # ========================
 with tab2:
     st.subheader("🔒 Panel Administrador")
-    
-    if not st.session_state.admin_login:
-        clave = st.text_input("Contraseña", type="password", key="pwd_admin_field")
-        if st.button("Ingresar", key="btn_login_admin"):
-            if clave == ADMIN_PASSWORD:
-                st.session_state.admin_login = True
-                st.rerun()
-            else:
-                st.error("❌ Contraseña incorrecta")
-    else:
-        st.success("Acceso concedido ✅")
-        
-        if st.button("Cerrar Sesión", key="btn_logout_admin"):
-            st.session_state.admin_login = False
-            st.rerun()
+    clave = st.text_input("Contraseña", type="password")
 
-        # Botón fijo superior para descargas de comprobantes generados
+    if clave == ADMIN_PASSWORD:
+        st.success("Acceso concedido ✅")
+
+        # CONTROL DE DESCARGAS DE COMPROBANTES (Se muestra arriba para que no desaparezca con el rerun)
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
             st.download_button(
@@ -208,60 +202,61 @@ with tab2:
                 mime="application/pdf",
                 key="download_pdf_btn"
             )
-            if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
+            if st.button("Limpiar descarga actual"):
                 st.session_state.pdf_admin = None
                 st.rerun()
 
-        # Filtrar solicitudes pendientes
-        pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
+        if not df.empty:
+            pendientes = df[df["estado"] == "Pendiente"]
+        else:
+            pendientes = pd.DataFrame()
 
         if pendientes.empty:
             st.info("No hay reservas pendientes de aprobación")
         else:
             st.write("### 🟡 Pendientes")
 
-            # Muestra cada solicitud pendiente en filas individuales con botones independientes
             for i, row in pendientes.iterrows():
-                st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
+                st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']}")
                 col1, col2 = st.columns(2)
 
-                # APROBAR BOLETO
+                # APROBAR
                 with col1:
-                    if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}"):
+                    if st.button(f"✅ Aprobar {row['numero']}", key=f"a{i}"):
                         df.loc[df["numero"] == row["numero"], "estado"] = "Vendido"
                         guardar(df)
                         exportar_excel(df)
                         
-                        # Buscar todos los boletos comprados acumulados de este cliente específico
+                        # Buscar todos los números vendidos acumulados del cliente
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
 
-                        # Generar el archivo PDF
+                        # Generar el PDF y guardarlo en el estado de sesión
                         pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
                         st.session_state.pdf_admin = {
                             "file": pdf_bytes,
                             "telefono": row["telefono"],
                             "nombre": row["nombre"]
                         }
+                        st.success("✅ Número aprobado")
                         st.rerun()
 
-                # RECHAZAR BOLETO
+                # RECHAZAR RESERVA
                 with col2:
-                    if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}"):
+                    if st.button(f"❌ Rechazar {row['numero']}", key=f"r{i}"):
                         df = df[df["numero"] != row["numero"]]
                         guardar(df)
                         exportar_excel(df)
                         st.rerun()
 
-        # Mostrar tabla de datos completa
         st.write("### 📋 Base de Datos Actual")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df)
 
-        # Módulo para dar de baja registros individuales por texto directo
+        # ELIMINACIÓN DE REGISTROS INDIVIDUALES (Líneas completadas)
         st.write("### ❌ Eliminar número específico")
-        num = st.text_input("Ingresa el número a dar de baja (ej: 045)", key="input_delete_manual")
+        num = st.text_input("Ingresa el número a dar de baja (ej: 045)")
 
-        if st.button("Eliminar Número", key="btn_delete_manual"):
+        if st.button("Eliminar Número"):
             if num:
                 if not df.empty and num in df["numero"].values:
                     df = df[df["numero"] != num]
