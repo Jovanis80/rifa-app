@@ -108,6 +108,9 @@ def generar_pdf(nombre, telefono, numeros):
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
+if "admin_login" not in st.session_state:
+    st.session_state.admin_login = False
+    
 # NAVEGACIÓN LATERAL ESTÁTICA
 st.sidebar.title("Navegación 🧭")
 seccion = st.sidebar.radio("Ir a:", ["Reservar Boletos", "Panel Administrador"], key="radio_navigation")
@@ -174,14 +177,31 @@ if seccion == "Reservar Boletos":
 # ========================
 elif seccion == "Panel Administrador":
     st.title("🔒 PANEL ADMINISTRADOR")
-    clave = st.text_input("Introduce la contraseña de acceso", type="password", key="pwd_admin_field")
 
-    if clave == ADMIN_PASSWORD:
-        st.success("Acceso verificado.")
+    if not st.session_state.admin_login:
+        clave = st.text_input(
+            "Introduce la contraseña",
+            type="password",
+            key="pwd_admin_field"
+        )
+
+        if st.button("Ingresar"):
+            if clave == ADMIN_PASSWORD:
+                st.session_state.admin_login = True
+                st.rerun()
+            else:
+                st.error("❌ Contraseña incorrecta")
+    else:
+        st.success("✅ Acceso verificado")
+
+        if st.button("Cerrar sesión"):
+            st.session_state.admin_login = False
+            st.rerun()
 
         # Contenedor inmutable para PDFs generados
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
+
             st.download_button(
                 label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
                 data=data["file"],
@@ -200,7 +220,7 @@ elif seccion == "Panel Administrador":
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
-            # Lista estructurada de textos para el selector
+            # Lista plana de textos explicativos para el selector
             opciones_pendientes = [
                 f"Boleto: {row['numero']} | Cliente: {row['nombre']} | Tel: {row['telefono']}" 
                 for _, row in pendientes.iterrows()
@@ -212,7 +232,7 @@ elif seccion == "Panel Administrador":
                 key="select_pedido_admin"
             )
             
-            # PARSING SEGURO POR POSICIÓN ELEMENTAL
+            # CORRECCIÓN DEFINITIVA DE MANEJO DE STRINGS (Acceso por índices individuales de la lista)
             partes = [p.strip() for p in seleccion_admin.split("|")]
             num_seleccionado = partes[0].replace("Boleto:", "").strip()
             nom_seleccionado = partes[1].replace("Cliente:", "").strip()
@@ -235,7 +255,7 @@ elif seccion == "Panel Administrador":
                         "nombre": nom_seleccionado
                     }
                     st.rerun()
-
+                    
             with c2:
                 if st.button(f"Rechazar Número {num_seleccionado}", use_container_width=True, key="btn_rech_ok"):
                     df = df[df["numero"] != num_seleccionado]
@@ -259,7 +279,3 @@ elif seccion == "Panel Administrador":
                     exportar_excel(df)
                     st.success(f"Boleto {num_baja} borrado de los registros.")
                     st.rerun()
-                else:
-                    st.error("El número ingresado no existe en los registros actuales.")
-            else:
-                st.error("Debes ingresar un número válido.")
