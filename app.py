@@ -195,7 +195,7 @@ elif seccion == "Panel Administrador":
             st.session_state.admin_login = False
             st.rerun()
 
-        # Contenedor inmutable para PDFs generados
+        # Contenedor para PDFs generados
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
             st.download_button(
@@ -209,14 +209,14 @@ elif seccion == "Panel Administrador":
                 st.session_state.pdf_admin = None
                 st.rerun()
 
-        # Cargar datos pendientes de forma segura
+        # Cargar datos pendientes
         pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
 
         st.write("### 🟡 Gestión de Solicitudes Pendientes")
+        
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
-            # Selector limpio basado en la lista de números pendientes
             lista_numeros_pendientes = pendientes["numero"].tolist()
             num_seleccionado = st.selectbox(
                 "Selecciona el número de boleto a procesar:", 
@@ -224,37 +224,38 @@ elif seccion == "Panel Administrador":
                 key="select_pedido_admin"
             )
             
-            # CORRECCIÓN DE INDEXACIÓN: .iloc[0] para extraer los datos de la fila individual de forma segura
-            fila_datos = pendientes[pendientes["numero"] == num_seleccionado].iloc[0]
-            nom_seleccionado = fila_datos["nombre"]
-            tel_seleccionado = fila_datos["telefono"]
+            # Obtención segura indexando directamente los valores correspondientes
+            datos_boleto = pendientes[pendientes["numero"] == num_seleccionado]
+            if not datos_boleto.empty:
+                nom_seleccionado = datos_boleto["nombre"].values[0]
+                tel_seleccionado = datos_boleto["telefono"].values[0]
 
-            st.write(f"**Cliente:** {nom_seleccionado} | **Teléfono:** {tel_seleccionado}")
+                st.write(f"**Cliente:** {nom_seleccionado} | **Teléfono:** {tel_seleccionado}")
 
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button(f"Aprobar Número {num_seleccionado}", use_container_width=True, key="btn_aprob_ok"):
-                    df.loc[df["numero"] == num_seleccionado, "estado"] = "Vendido"
-                    guardar(df)
-                    exportar_excel(df)
-                    
-                    cliente_df = df[(df["telefono"] == tel_seleccionado) & (df["estado"] == "Vendido")]
-                    numeros_cliente = cliente_df["numero"].tolist()
-                    
-                    pdf_bytes = generar_pdf(nom_seleccionado, tel_seleccionado, numeros_cliente)
-                    st.session_state.pdf_admin = {
-                        "file": pdf_bytes,
-                        "telefono": tel_seleccionado,
-                        "nombre": nom_seleccionado
-                    }
-                    st.rerun()
-                    
-            with c2:
-                if st.button(f"Rechazar Número {num_seleccionado}", use_container_width=True, key="btn_rech_ok"):
-                    df = df[df["numero"] != num_seleccionado]
-                    guardar(df)
-                    exportar_excel(df)
-                    st.rerun()
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button(f"Aprobar Número {num_seleccionado}", use_container_width=True, key="btn_aprob_ok"):
+                        df.loc[df["numero"] == num_seleccionado, "estado"] = "Vendido"
+                        guardar(df)
+                        exportar_excel(df)
+                        
+                        cliente_df = df[(df["telefono"] == tel_seleccionado) & (df["estado"] == "Vendido")]
+                        numeros_cliente = cliente_df["numero"].tolist()
+                        
+                        pdf_bytes = generar_pdf(nom_seleccionado, tel_seleccionado, numeros_cliente)
+                        st.session_state.pdf_admin = {
+                            "file": pdf_bytes,
+                            "telefono": tel_seleccionado,
+                            "nombre": nom_seleccionado
+                        }
+                        st.rerun()
+                        
+                with col2:
+                    if st.button(f"Rechazar Número {num_seleccionado}", use_container_width=True, key="btn_rech_ok"):
+                        df = df[df["numero"] != num_seleccionado]
+                        guardar(df)
+                        exportar_excel(df)
+                        st.rerun()
 
         # Base de datos global
         st.write("### 📋 Base de Datos Actual")
@@ -273,5 +274,3 @@ elif seccion == "Panel Administrador":
                     st.success(f"Boleto {num_baja} borrado de los registros.")
                     st.rerun()
                 else:
-                    st.error("El número ingresado no existe en los registros actuales.")
-            else:
