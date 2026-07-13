@@ -175,12 +175,10 @@ if seccion == "Reservar Boletos":
 # ========================
 # SECCIÓN: ADMINISTRADOR
 # ========================
-    elif seccion == "Panel Administrador":
-
+elif seccion == "Panel Administrador":
     st.title("🔒 PANEL ADMINISTRADOR")
 
     if not st.session_state.admin_login:
-
         clave = st.text_input(
             "Introduce la contraseña",
             type="password",
@@ -193,26 +191,24 @@ if seccion == "Reservar Boletos":
                 st.rerun()
             else:
                 st.error("❌ Contraseña incorrecta")
+    else:
+        st.success("✅ Acceso verificado")
 
-  else:
+        if st.button("Cerrar sesión"):
+            st.session_state.admin_login = False
+            st.rerun()
 
-    st.success("✅ Acceso verificado")
+        # Contenedor inmutable para PDFs generados
+        if st.session_state.pdf_admin is not None:
+            data = st.session_state.pdf_admin
 
-    if st.button("Cerrar sesión"):
-        st.session_state.admin_login = False
-        st.rerun()
-
-    # Contenedor inmutable para PDFs generados
-    if st.session_state.pdf_admin is not None:
-        data = st.session_state.pdf_admin
-
-        st.download_button(
-            label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
-            data=data["file"],
-            file_name=f"comprobante_{data['telefono']}.pdf",
-            mime="application/pdf",
-            key="download_pdf_final"
-        )
+            st.download_button(
+                label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
+                data=data["file"],
+                file_name=f"comprobante_{data['telefono']}.pdf",
+                mime="application/pdf",
+                key="download_pdf_final"
+            )
             if st.button("Limpiar descarga anterior", key="clear_pdf_final"):
                 st.session_state.pdf_admin = None
                 st.rerun()
@@ -249,8 +245,8 @@ if seccion == "Reservar Boletos":
                     guardar(df)
                     exportar_excel(df)
                     
-               if "pdf_admin" not in st.session_state:
-    st.session_state.pdf_admin = None
+                    cliente_df = df[(df["telefono"] == tel_seleccionado) & (df["estado"] == "Vendido")]
+                    numeros_cliente = cliente_df["numero"].tolist()
                     
                     pdf_bytes = generar_pdf(nom_seleccionado, tel_seleccionado, numeros_cliente)
                     st.session_state.pdf_admin = {
@@ -259,7 +255,7 @@ if seccion == "Reservar Boletos":
                         "nombre": nom_seleccionado
                     }
                     st.rerun()
-
+                    
             with c2:
                 if st.button(f"Rechazar Número {num_seleccionado}", use_container_width=True, key="btn_rech_ok"):
                     df = df[df["numero"] != num_seleccionado]
@@ -283,7 +279,3 @@ if seccion == "Reservar Boletos":
                     exportar_excel(df)
                     st.success(f"Boleto {num_baja} borrado de los registros.")
                     st.rerun()
-                else:
-                    st.error("El número ingresado no existe en los registros actuales.")
-            else:
-                st.error("Debes ingresar un número válido.")
