@@ -181,12 +181,7 @@ elif seccion == "Panel Administrador":
     st.title("🔒 PANEL ADMINISTRADOR")
 
     if not st.session_state.admin_login:
-        clave = st.text_input(
-            "Introduce la contraseña",
-            type="password",
-            key="pwd_admin_field"
-        )
-
+        clave = st.text_input("Introduce la contraseña", type="password", key="pwd_admin_field")
         if st.button("Ingresar"):
             if clave == ADMIN_PASSWORD:
                 st.session_state.admin_login = True
@@ -203,7 +198,6 @@ elif seccion == "Panel Administrador":
         # Contenedor inmutable para PDFs generados
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
-
             st.download_button(
                 label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
                 data=data["file"],
@@ -222,22 +216,20 @@ elif seccion == "Panel Administrador":
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
-            opciones_pendientes = [
-                f"Boleto: {row['numero']} | Cliente: {row['nombre']} | Tel: {row['telefono']}" 
-                for _, row in pendientes.iterrows()
-            ]
-            
-            seleccion_admin = st.selectbox(
-                "Selecciona una solicitud de la lista:", 
-                opciones_pendientes,
+            # Selector limpio basado únicamente en el número del boleto para evitar bugs
+            lista_numeros_pendientes = pendientes["numero"].tolist()
+            num_seleccionado = st.selectbox(
+                "Selecciona el número de boleto a procesar:", 
+                lista_numeros_pendientes,
                 key="select_pedido_admin"
             )
             
-            # PARSING SEGURO POR POSICIÓN ELEMENTAL
-            partes = [p.strip() for p in seleccion_admin.split("|")]
-            num_seleccionado = partes[0].replace("Boleto:", "").strip()
-            nom_seleccionado = partes[1].replace("Cliente:", "").strip()
-            tel_seleccionado = partes[2].replace("Tel:", "").strip()
+            # Extraer los datos de la base de datos de manera directa y segura
+            fila_datos = pendientes[pendientes["numero"] == num_seleccionado].iloc[0]
+            nom_seleccionado = fila_datos["nombre"]
+            tel_seleccionado = fila_datos["telefono"]
+
+            st.write(f"**Cliente:** {nom_seleccionado} | **Teléfono:** {tel_seleccionado}")
 
             c1, c2 = st.columns(2)
             with c1:
@@ -281,3 +273,5 @@ elif seccion == "Panel Administrador":
                     st.success(f"Boleto {num_baja} borrado de los registros.")
                     st.rerun()
                 else:
+                    st.error("El número ingresado no existe en los registros actuales.")
+            else:
