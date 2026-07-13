@@ -103,14 +103,14 @@ def generar_pdf(nombre, telefono, numeros):
     return pdf.output(dest="S").encode("latin-1")
 
 # ========================
-# CONTROL DE ESTADOS
+# CONTROL DE ESTADOS (SESSION STATE)
 # ========================
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
-# NAVEGACIÓN SEGURA LATERAL
+# NAVEGACIÓN LATERAL ESTÁTICA
 st.sidebar.title("Navegación 🧭")
-seccion = st.sidebar.radio("Ir a:", ["Reservar Boletos", "Panel Administrador"])
+seccion = st.sidebar.radio("Ir a:", ["Reservar Boletos", "Panel Administrador"], key="radio_navigation")
 
 # ========================
 # SECCIÓN: RESERVAR BOLETOS
@@ -118,9 +118,9 @@ seccion = st.sidebar.radio("Ir a:", ["Reservar Boletos", "Panel Administrador"])
 if seccion == "Reservar Boletos":
     st.title("🎟️ RIFA PREMIUM — RESERVAS")
     
-    cantidad = st.number_input("¿Cuántos números quieres?", 1, 20, 1)
-    nombre = st.text_input("Nombre")
-    telefono = st.text_input("Teléfono")
+    cantidad = st.number_input("¿Cuántos números quieres?", 1, 20, 1, key="input_cant")
+    nombre = st.text_input("Nombre", key="input_nom")
+    telefono = st.text_input("Teléfono", key="input_tel")
 
     todos = [f"{i:03d}" for i in range(1000)]
     
@@ -142,13 +142,13 @@ if seccion == "Reservar Boletos":
         opciones.append(label)
         mapa[label] = n
 
-    seleccion = st.multiselect("Selecciona números", opciones)
+    seleccion = st.multiselect("Selecciona números", opciones, key="multi_num")
     numeros = [mapa[s] for s in seleccion if mapa[s] not in vendidos]
 
     total = len(numeros) * PRECIO
     st.info(f"💰 Total a pagar: ${total}")
 
-    if st.button("Confirmar Reserva", use_container_width=True):
+    if st.button("Confirmar Reserva", use_container_width=True, key="btn_confirmar_res"):
         if not nombre or not telefono:
             st.error("Por favor completa tu nombre y teléfono.")
         elif len(numeros) != cantidad:
@@ -166,7 +166,7 @@ if seccion == "Reservar Boletos":
             df_actualizado = pd.concat([df, pd.DataFrame(nuevos)], ignore_index=True)
             guardar(df_actualizado)
             exportar_excel(df_actualizado)
-            st.success("✅ ¡Reserva registrada! Espera la aprobación del administrador.")
+            st.success("✅ ¡Reserva registrada! Avisa al administrador para que la apruebe.")
             st.rerun()
 
 # ========================
@@ -174,32 +174,33 @@ if seccion == "Reservar Boletos":
 # ========================
 elif seccion == "Panel Administrador":
     st.title("🔒 PANEL ADMINISTRADOR")
-    clave = st.text_input("Introduce la contraseña de acceso", type="password")
+    clave = st.text_input("Introduce la contraseña de acceso", type="password", key="pwd_admin_field")
 
     if clave == ADMIN_PASSWORD:
-        st.success("Acceso verificado con éxito.")
+        st.success("Acceso verificado.")
 
-        # Contenedor estático para la descarga de comprobantes
+        # Contenedor inmutable para PDFs generados
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
             st.download_button(
                 label=f"📄 DESCARGAR COMPROBANTE DE {data['nombre'].upper()}",
                 data=data["file"],
                 file_name=f"comprobante_{data['telefono']}.pdf",
-                mime="application/pdf"
+                mime="application/pdf",
+                key="download_pdf_final"
             )
-            if st.button("Limpiar descarga anterior"):
+            if st.button("Limpiar descarga anterior", key="clear_pdf_final"):
                 st.session_state.pdf_admin = None
                 st.rerun()
 
-        # Filtrar datos pendientes de manera estática
+        # Cargar datos pendientes de forma segura
         pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
 
         st.write("### 🟡 Gestión de Solicitudes Pendientes")
         if pendientes.empty:
             st.info("No tienes reservas pendientes por procesar.")
         else:
-            # Lista plana de textos explicativos
+            # Lista plana de textos explicativos para el selector
             opciones_pendientes = [
                 f"Boleto: {row['numero']} | Cliente: {row['nombre']} | Tel: {row['telefono']}" 
                 for _, row in pendientes.iterrows()
@@ -207,23 +208,23 @@ elif seccion == "Panel Administrador":
             
             seleccion_admin = st.selectbox(
                 "Selecciona una solicitud de la lista:", 
-                opciones_pendientes
+                opciones_pendientes,
+                key="select_pedido_admin"
             )
             
-            # Extraer de forma segura las variables separando por la barra '|'
+            # Corrección de parsing basada estrictamente en strings individuales
             partes = [p.strip() for p in seleccion_admin.split("|")]
-            num_seleccionado = partes[0].replace("Boleto: ", "").strip()
-            nom_seleccionado = partes[1].replace("Cliente: ", "").strip()
-            tel_seleccionado = partes[2].replace("Tel: ", "").strip()
+            num_seleccionado = partes[0].replace("Boleto:", "").strip()
+            nom_seleccionado = partes[1].replace("Cliente:", "").strip()
+            tel_seleccionado = partes[2].replace("Tel:", "").strip()
 
             c1, c2 = st.columns(2)
             with c1:
-                if st.button(f"Aprobar Número {num_seleccionado}", use_container_width=True):
+                if st.button(f"Aprobar Número {num_seleccionado}", use_container_width=True, key="btn_aprob_ok"):
                     df.loc[df["numero"] == num_seleccionado, "estado"] = "Vendido"
                     guardar(df)
                     exportar_excel(df)
                     
-                    # Generar comprobante acumulado con los vendidos del cliente
                     cliente_df = df[(df["telefono"] == tel_seleccionado) & (df["estado"] == "Vendido")]
                     numeros_cliente = cliente_df["numero"].tolist()
                     
@@ -236,21 +237,21 @@ elif seccion == "Panel Administrador":
                     st.rerun()
 
             with c2:
-                if st.button(f"Rechazar Número {num_seleccionado}", use_container_width=True):
+                if st.button(f"Rechazar Número {num_seleccionado}", use_container_width=True, key="btn_rech_ok"):
                     df = df[df["numero"] != num_seleccionado]
                     guardar(df)
                     exportar_excel(df)
                     st.rerun()
 
-        # Visualización de datos completa
+        # Base de datos global
         st.write("### 📋 Base de Datos Actual")
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True, key="data_table_view")
 
-        # Módulo de baja manual por ID
+        # Eliminación Directa
         st.write("### ❌ Eliminación Directa de Registros")
-        num_baja = st.text_input("Escribe el número exacto que deseas eliminar (ej: 005)")
+        num_baja = st.text_input("Escribe el número exacto que deseas eliminar (ej: 005)", key="input_baja_manual")
 
-        if st.button("Eliminar permanentemente"):
+        if st.button("Eliminar permanentemente", key="btn_baja_manual"):
             if num_baja:
                 if not df.empty and num_baja in df["numero"].values:
                     df = df[df["numero"] != num_baja]
