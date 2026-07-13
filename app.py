@@ -212,7 +212,7 @@ elif seccion == "Panel Administrador":
                 key="select_pedido_admin"
             )
             
-            # CORRECCIÓN DE PARSING ELIMINANDO EL MÉTODO MAL APLICADO
+            # CORRECCIÓN DEFINITIVA DE MANEJO DE STRINGS (Acceso por índices individuales de la lista)
             partes = [p.strip() for p in seleccion_admin.split("|")]
             num_seleccionado = partes[0].replace("Boleto:", "").strip()
             nom_seleccionado = partes[1].replace("Cliente:", "").strip()
