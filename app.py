@@ -15,7 +15,7 @@ PRECIO = 3000
 DB_FILE = "/tmp/rifa_db.csv"
 
 # Contraseña fija del administrador para evitar errores de st.secrets
-ADMIN_PASSWORD = "admin"
+ADMIN_PASSWORD = "JVR_2026_SEGUR0"
 
 # ========================
 # BASE DE DATOS RESISTENTE (LOCAL EN FORMATO CSV)
