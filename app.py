@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
+import os
 from fpdf import FPDF
 from datetime import datetime
-from streamlit_gsheets import GSheetsConnection
 
 # ========================
 # CONFIGURACIÓN DE PÁGINA
@@ -11,36 +11,37 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 PRECIO = 3000
 
-# Lee la contraseña de forma oculta desde Streamlit Cloud Secrets
-ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+# Usamos la carpeta /tmp que es más resistente a los reinicios de Streamlit Cloud
+DB_FILE = "/tmp/rifa_db.csv"
+
+# Contraseña fija del administrador para evitar errores de st.secrets
+ADMIN_PASSWORD = "admin"
 
 # ========================
-# BASE DE DATOS EN LA NUBE (GOOGLE SHEETS)
+# BASE DE DATOS RESISTENTE (LOCAL EN FORMATO CSV)
 # ========================
-# Creamos la conexión oficial con tu hoja de cálculo
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 def cargar():
+    if not os.path.exists(DB_FILE):
+        df = pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+        guardar(df)
+        return df
     try:
-        # Intenta leer la hoja llamada "respuestas" (o la primera por defecto)
-        df_cargado = conn.read(ttl="0d") # ttl="0d" deshabilita la caché para leer datos en tiempo real
+        df_cargado = pd.read_csv(DB_FILE)
         if df_cargado.empty:
             return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
         return df_cargado.astype(str).fillna("")
     except Exception:
-        # Si la hoja no existe o está vacía, devuelve la estructura base
         return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
 
 def guardar(df):
     try:
-        # Sube y sobrescribe la hoja de cálculo en la nube instantáneamente
-        conn.update(data=df)
-        # Opcional: mantiene una copia local de respaldo en el servidor
+        df.to_csv(DB_FILE, index=False)
+        # Copia de respaldo para descargas en Excel
         df.to_excel("compradores.xlsx", index=False)
     except Exception as e:
-        st.error(f"Error al guardar en la nube: {e}")
+        st.error(f"Error al guardar datos: {e}")
 
-# Carga inicial de datos desde la nube
+# Carga inicial de datos
 df = cargar()
 
 # ========================
@@ -161,18 +162,22 @@ with tab1:
         else:
             nuevos = []
             for n in numeros:
-                nuevos.append({
-                    "numero": n,
-                    "nombre": nombre,
-                    "telefono": telefono,
-                    "estado": "Pendiente"
-                })
+                # Evita duplicar reservas del mismo número exacto
+                if n not in df["numero"].tolist():
+                    nuevos.append({
+                        "numero": n,
+                        "nombre": nombre,
+                        "telefono": telefono,
+                        "estado": "Pendiente"
+                    })
 
-            df_actualizado = pd.concat([df, pd.DataFrame(nuevos)], ignore_index=True)
-            guardar(df_actualizado)
-
-            st.success("✅ Reserva guardada con éxito")
-            st.rerun()
+            if nuevos:
+                df_actualizado = pd.concat([df, pd.DataFrame(nuevos)], ignore_index=True)
+                guardar(df_actualizado)
+                st.success("✅ Reserva guardada con éxito")
+                st.rerun()
+            else:
+                st.error("Uno o más números seleccionados ya cambiaron de estado.")
 
 # ========================
 # PESTAÑA 2: ADMINISTRADOR
@@ -233,7 +238,7 @@ with tab2:
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
 
-                        # Generar el archivo PDF y guardarlo en el estado de la sesión
+                        # Generar el archivo PDF y asignarlo correctamente a session_state
                         pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
                         st.session_state.pdf_admin = {
                             "nombre": row["nombre"],
