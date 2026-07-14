@@ -276,7 +276,7 @@ with tab2:
             # Dibujamos el dataframe limpio
             st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
 
-            # Bloque de exportación corregido con indentación estricta de 4 espacios uniformes
+            # SOLUCIÓN DEFINITIVA: Exportación directa en 1 línea limpia para evitar errores de indentación con 'with'
             try:
                 output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                vista_agenda.to_excel(output, index=False, engine='openpyxl')
