@@ -12,7 +12,7 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 PRECIO = 3000
 
-# Archivo de datos unificado
+# Archivo de datos unificado local para máxima velocidad
 DB_FILE = "rifa_db.csv"
 
 # Contraseña fija del administrador
@@ -262,7 +262,7 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # AGENDA DESPLEGABLE CON RESPALDO DE SEGURIDAD
+        # AGENDA DESPLEGABLE REESTRUCTURADA PLANA
         # ==========================================
         st.write("---")
         
@@ -280,5 +280,4 @@ with tab2:
                     
                     st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
                     
-                    excel_bytes = generar_excel_bytes(vista_agenda)
-                    if excel_bytes:
+                    # CORRECCIÓN DEFINITIVA: Renderizado directo sin 'if' propenso a fallas de espaciado
