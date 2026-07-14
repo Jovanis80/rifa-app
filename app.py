@@ -241,7 +241,7 @@ with tab2:
                             "telefono": row["telefono"],
                             "file": pdf_bytes
                         }
-                        st.success(f"¡Boleto {row['numero']} approved!")
+                        st.success(f"¡Boleto {row['numero']} aprobado!")
                         st.rerun()
 
                 # RECHAZAR / ELIMINAR RESERVA ERRONEA
@@ -276,7 +276,7 @@ with tab2:
             # Dibujamos el dataframe limpio
             st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
 
-            # ESTRUCTURA CORREGIDA: Se alineó correctamente todo el bloque try/except de la exportación a Excel
+            # Bloque de exportación corregido con indentación estricta de 4 espacios uniformes
             try:
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
