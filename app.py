@@ -12,17 +12,16 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 PRECIO = 3000
 
-# Usamos la carpeta /tmp que es más resistente a los reinicios de Streamlit Cloud
-DB_FILE = "/tmp/rifa_db.csv"
+# Archivo de datos unificado
+DB_FILE = "rifa_db.csv"
 
-# Contraseña fija del administrador para evitar errores de st.secrets
+# Contraseña fija del administrador
 ADMIN_PASSWORD = "admin"
 
 # ========================
 # FUNCIONES AUXILIARES DE CONVERSIÓN
 # ========================
 def generar_excel_bytes(dataframe_agenda):
-    """Genera los bytes de Excel de forma aislada para evitar errores de sintaxis"""
     try:
         output_buffer = io.BytesIO()
         dataframe_agenda.to_excel(output_buffer, index=False, engine='openpyxl')
@@ -31,7 +30,7 @@ def generar_excel_bytes(dataframe_agenda):
         return b""
 
 # ========================
-# BASE DE DATOS RESISTENTE (LOCAL EN FORMATO CSV)
+# BASE DE DATOS RESISTENTE 
 # ========================
 def cargar():
     if not os.path.exists(DB_FILE):
@@ -49,8 +48,6 @@ def cargar():
 def guardar(df):
     try:
         df.to_csv(DB_FILE, index=False)
-        # Copia de respaldo para descargas en Excel
-        df.to_excel("compradores.xlsx", index=False)
     except Exception as e:
         st.error(f"Error al guardar datos: {e}")
 
@@ -265,7 +262,7 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # AGENDA DESPLEGABLE OPTIMIZADA EN LÍNEAS CORTAS
+        # AGENDA DESPLEGABLE CON RESPALDO DE SEGURIDAD
         # ==========================================
         st.write("---")
         
@@ -279,3 +276,9 @@ with tab2:
                 else:
                     v_df = v_df.sort_values(by="numero")
                     columnas_renombradas = {"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
+                    vista_agenda = v_df[["numero", "nombre", "telefono"]].rename(columns=columnas_renombradas)
+                    
+                    st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
+                    
+                    excel_bytes = generar_excel_bytes(vista_agenda)
+                    if excel_bytes:
