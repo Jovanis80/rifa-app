@@ -129,10 +129,10 @@ with tab1:
 
     todos = [f"{i:03d}" for i in range(1000)]
     
-    # Extraemos listas en tiempo real desde la base de datos local
     if not df.empty:
-        vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
-        reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
+        # CORRECCIÓN: Quitamos espacios vacíos accidentales en la lectura
+        vendidos = df[df["estado"].str.strip() == "Vendido"]["numero"].tolist()
+        reservados = df[df["estado"].str.strip() == "Pendiente"]["numero"].tolist()
     else:
         vendidos = []
         reservados = []
@@ -140,7 +140,6 @@ with tab1:
     opciones = []
     mapa = {}
     for n in todos:
-        # ASIGNACIÓN DE COLORES SOLICITADA
         if n in vendidos:
             label = f"🔴 {n} (Vendido)"
         elif n in reservados:
@@ -151,8 +150,6 @@ with tab1:
         mapa[label] = n
 
     seleccion = st.multiselect("Selecciona números", opciones, key="multi_num")
-    
-    # Filtramos para que SOLO tome números que no estén vendidos ni reservados previamente
     numeros = [mapa[s] for s in seleccion if mapa[s] not in vendidos and mapa[s] not in reservados]
 
     total = len(numeros) * PRECIO
@@ -166,7 +163,6 @@ with tab1:
         else:
             nuevos = []
             for n in numeros:
-                # Doble verificación de seguridad en la tabla completa
                 if n not in df["numero"].tolist():
                     nuevos.append({
                         "numero": n,
@@ -205,7 +201,6 @@ with tab2:
             st.session_state.pdf_admin = None
             st.rerun()
 
-        # Botón fijo superior para descargas de comprobantes generados
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
             st.download_button(
@@ -219,15 +214,14 @@ with tab2:
                 st.session_state.pdf_admin = None
                 st.rerun()
 
-        # Filtrar solicitudes pendientes
-        pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
+        # CORRECCIÓN: Filtro de solicitudes con limpieza de strings (.str.strip())
+        pendientes = df[df["estado"].str.strip() == "Pendiente"] if not df.empty else pd.DataFrame()
 
         if pendientes.empty:
             st.info("No hay reservas pendientes de aprobación")
         else:
             st.write("### 🟡 Pendientes")
 
-            # Muestra cada solicitud pendiente en filas individuales con botones independientes
             for i, row in pendientes.iterrows():
                 st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
                 col1, col2 = st.columns(2)
@@ -238,11 +232,9 @@ with tab2:
                         df.loc[i, "estado"] = "Vendido"
                         guardar(df)
                         
-                        # Buscar todos los boletos comprados acumulados de este cliente específico
-                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
+                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"].str.strip() == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
 
-                        # Generar el archivo PDF y asignarlo correctamente a session_state
                         pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
                         st.session_state.pdf_admin = {
                             "nombre": row["nombre"],
@@ -266,12 +258,25 @@ with tab2:
         st.write("---")
         st.write("### 📋 Agenda de Números Vendidos")
         
-        vendidos_df = df[df["estado"] == "Vendido"] if not df.empty else pd.DataFrame()
+        # CORRECCIÓN: Búsqueda exacta omitiendo fallas de formato de strings
+        if not df.empty:
+            vendidos_df = df[df["estado"].str.strip() == "Vendido"].copy()
+        else:
+            vendidos_df = pd.DataFrame()
 
         if vendidos_df.empty:
             st.info("Aún no se han vendido números.")
         else:
+            # Ordenamos la lista por número de boleto de menor a mayor
             vendidos_df = vendidos_df.sort_values(by="numero")
+            
             vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
                 columns={"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
             )
+            
+            # Dibujamos el dataframe limpio
+            st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
+
+            try:
+                import io
+                output = io.BytesIO()
