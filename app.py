@@ -13,8 +13,8 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 DB_FILE = "rifa_db.json"
 PRECIO = 3000
 
-# CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
-ADMIN_PASSWORD = "TuContrasenaSegura"
+# CLAVE CONFIGURADA DIRECTAMENTE (Cámbiala aquí si deseas otra)
+ADMIN_PASSWORD = "JVR2026"
 
 # ========================
 # BASE DE DATOS RESISTENTE
