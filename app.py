@@ -129,6 +129,7 @@ with tab1:
 
     todos = [f"{i:03d}" for i in range(1000)]
     
+    # Extraemos listas en tiempo real desde la base de datos local
     if not df.empty:
         vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
         reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
@@ -139,6 +140,7 @@ with tab1:
     opciones = []
     mapa = {}
     for n in todos:
+        # ASIGNACIÓN DE COLORES SOLICITADA
         if n in vendidos:
             label = f"🔴 {n} (Vendido)"
         elif n in reservados:
@@ -149,7 +151,9 @@ with tab1:
         mapa[label] = n
 
     seleccion = st.multiselect("Selecciona números", opciones, key="multi_num")
-    numeros = [mapa[s] for s in seleccion if mapa[s] not in vendidos]
+    
+    # Filtramos para que SOLO tome números que no estén vendidos ni reservados previamente
+    numeros = [mapa[s] for s in seleccion if mapa[s] not in vendidos and mapa[s] not in reservados]
 
     total = len(numeros) * PRECIO
     st.success(f"💰 Total a pagar: ${total}")
@@ -158,11 +162,11 @@ with tab1:
         if not nombre or not telefono:
             st.error("Completa los datos")
         elif len(numeros) != cantidad:
-            st.error("Selecciona la cantidad correcta")
+            st.error("Selecciona la cantidad correcta de números libres (Verdes)")
         else:
             nuevos = []
             for n in numeros:
-                # Evita duplicar reservas del mismo número exacto
+                # Doble verificación de seguridad en la tabla completa
                 if n not in df["numero"].tolist():
                     nuevos.append({
                         "numero": n,
@@ -177,7 +181,7 @@ with tab1:
                 st.success("✅ Reserva guardada con éxito")
                 st.rerun()
             else:
-                st.error("Uno o más números seleccionados ya cambiaron de estado.")
+                st.error("Uno o más números seleccionados ya no están disponibles.")
 
 # ========================
 # PESTAÑA 2: ADMINISTRADOR
@@ -257,22 +261,17 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # NUEVA SECCIÓN: AGENDA DE NÚMEROS VENDIDOS
+        # AGENDA DE NÚMEROS VENDIDOS
         # ==========================================
         st.write("---")
         st.write("### 📋 Agenda de Números Vendidos")
         
-        # Filtramos la tabla original para mostrar únicamente los que tengan estado "Vendido"
         vendidos_df = df[df["estado"] == "Vendido"] if not df.empty else pd.DataFrame()
 
         if vendidos_df.empty:
             st.info("Aún no se han vendido números.")
         else:
-            # Ordenamos la lista por número de boleto de menor a mayor
             vendidos_df = vendidos_df.sort_values(by="numero")
-            
-            # Limpiamos visualmente las columnas para el usuario
             vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
                 columns={"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
             )
-            
