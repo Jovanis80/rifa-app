@@ -19,6 +19,18 @@ DB_FILE = "/tmp/rifa_db.csv"
 ADMIN_PASSWORD = "admin"
 
 # ========================
+# FUNCIONES AUXILIARES DE CONVERSIÓN
+# ========================
+def generar_excel_bytes(dataframe_agenda):
+    """Genera los bytes de Excel de forma aislada para evitar errores de sintaxis"""
+    try:
+        output_buffer = io.BytesIO()
+        dataframe_agenda.to_excel(output_buffer, index=False, engine='openpyxl')
+        return output_buffer.getvalue()
+    except Exception:
+        return b""
+
+# ========================
 # BASE DE DATOS RESISTENTE (LOCAL EN FORMATO CSV)
 # ========================
 def cargar():
@@ -272,11 +284,3 @@ with tab2:
             vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
                 columns={"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
             )
-            
-            # Dibujamos el dataframe limpio
-            st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
-
-            # SOLUCIÓN DEFINITIVA: Exportación directa en 1 línea limpia para evitar errores de indentación con 'with'
-            try:
-                output = io.BytesIO()
-                vista_agenda.to_excel(output, index=False, engine='openpyxl')
