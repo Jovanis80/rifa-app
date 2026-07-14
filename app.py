@@ -265,22 +265,20 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # AGENDA DE NÚMEROS VENDIDOS
+        # SOLUCIÓN: AGENDA DENTRO DE UN DESPLEGABLE (EXPANDER)
         # ==========================================
         st.write("---")
-        st.write("### 📋 Agenda de Números Vendidos")
         
-        if not df.empty:
-            vendidos_df = df[df["estado"].str.strip() == "Vendido"].copy()
-        else:
-            vendidos_df = pd.DataFrame()
+        with st.expander("📋 Ver Agenda de Números Vendidos", expanded=False):
+            if not df.empty:
+                vendidos_df = df[df["estado"].str.strip() == "Vendido"].copy()
+            else:
+                vendidos_df = pd.DataFrame()
 
-        if vendidos_df.empty:
-            st.info("Aún no se han vendido números.")
-        else:
-            # Ordenamos la lista por número de boleto de menor a mayor
-            vendidos_df = vendidos_df.sort_values(by="numero")
-            
-            vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
-                columns={"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
-            )
+            if vendidos_df.empty:
+                st.info("Aún no se han vendido números.")
+            else:
+                # Ordenamos la lista por número de boleto de menor a mayor
+                vendidos_df = vendidos_df.sort_values(by="numero")
+                
+                vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
