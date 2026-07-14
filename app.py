@@ -15,7 +15,7 @@ PRECIO = 3000
 DB_FILE = "/tmp/rifa_db.csv"
 
 # Contraseña fija del administrador para evitar errores de st.secrets
-ADMIN_PASSWORD = "JVR_2026_SEGUR0"
+ADMIN_PASSWORD = "admin"
 
 # ========================
 # BASE DE DATOS RESISTENTE (LOCAL EN FORMATO CSV)
@@ -248,11 +248,31 @@ with tab2:
                         st.success(f"¡Boleto {row['numero']} aprobado!")
                         st.rerun()
 
-                # NUEVO: RECHAZAR / ELIMINAR RESERVA ERRONEA
+                # RECHAZAR / ELIMINAR RESERVA ERRONEA
                 with col2:
                     if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}_{i}"):
-                        # Elimina la fila correspondiente de la base de datos por su índice
                         df = df.drop(i)
                         guardar(df)
                         st.warning(f"¡Reserva del boleto {row['numero']} eliminada!")
                         st.rerun()
+
+        # ==========================================
+        # NUEVA SECCIÓN: AGENDA DE NÚMEROS VENDIDOS
+        # ==========================================
+        st.write("---")
+        st.write("### 📋 Agenda de Números Vendidos")
+        
+        # Filtramos la tabla original para mostrar únicamente los que tengan estado "Vendido"
+        vendidos_df = df[df["estado"] == "Vendido"] if not df.empty else pd.DataFrame()
+
+        if vendidos_df.empty:
+            st.info("Aún no se han vendido números.")
+        else:
+            # Ordenamos la lista por número de boleto de menor a mayor
+            vendidos_df = vendidos_df.sort_values(by="numero")
+            
+            # Limpiamos visualmente las columnas para el usuario
+            vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
+                columns={"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
+            )
+            
