@@ -1,3 +1,182 @@
+import streamlit as st
+import pandas as pd
+import os
+import json
+from fpdf import FPDF
+from datetime import datetime
+
+# ========================
+# CONFIGURACIÓN DE PÁGINA
+# ========================
+st.set_page_config(page_title="Rifa", page_icon="🎟️")
+
+DB_FILE = "rifa_db.json"
+PRECIO = 3000
+
+# CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
+ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+
+# ========================
+# BASE DE DATOS RESISTENTE
+# ========================
+def cargar():
+    if not os.path.exists(DB_FILE):
+        df = pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+        guardar(df)
+        return df
+    try:
+        with open(DB_FILE, "r", encoding="utf-8") as f:
+            datos = json.load(f)
+        df_cargado = pd.DataFrame(datos)
+        if df_cargado.empty:
+            return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+        return df_cargado.astype(str).fillna("")
+    except Exception:
+        return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+
+def guardar(df):
+    datos_dict = df.to_dict(orient="records")
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(datos_dict, f, ensure_ascii=False, indent=4)
+
+def exportar_excel(df):
+    df.to_excel("compradores.xlsx", index=False)
+
+# Carga inicial de datos
+df = cargar()
+
+# ========================
+# GENERADOR DE PDF
+# ========================
+def generar_pdf(nombre, telefono, numeros):
+    pdf = FPDF()
+    pdf.add_page()
+
+    fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
+    total = PRECIO * len(numeros)
+
+    pdf.set_font("Arial", "B", 16)
+    pdf.set_text_color(180, 0, 0) 
+    pdf.cell(0, 12, "J.V.R PREMIUM RIFA", ln=1, align="C")
+    pdf.ln(5)
+
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 7, f"Nombre: {nombre}".encode('latin-1', 'ignore').decode('latin-1'), ln=1)
+    pdf.cell(0, 7, f"Telefono: {telefono}", ln=1)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", "B", 13)
+    pdf.set_text_color(180, 0, 0) 
+    pdf.cell(0, 8, "NUMERO DE BOLETO", ln=1)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 8, " - ".join(numeros), ln=1)
+    pdf.ln(4)
+
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, 7, f"Fecha: {fecha_actual}", ln=1)
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(0, 7, f"Total pagado: ${total}", ln=1)
+    pdf.ln(5)
+
+    pdf.cell(0, 6, "Premio principal:", ln=1)
+    pdf.cell(0, 6, "Televisor Smart TV Sankey 42 pulgadas", ln=1)
+    pdf.cell(0, 6, "Android Full HD", ln=1)
+    pdf.ln(4)
+
+    pdf.cell(0, 6, "Opcion alternativa:", ln=1)
+    pdf.cell(0, 6, "$1.300.000 en efectivo", ln=1)
+    pdf.ln(5)
+
+    pdf.cell(0, 6, "Sorteo: 30 de octubre", ln=1)
+    pdf.cell(0, 6, "Loteria de Medellin", ln=1)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, 6, "Responsable: Jovanis Vanegas Ropain", ln=1)
+    pdf.cell(0, 6, "Contacto: 3126613272", ln=1)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "I", 10)
+    pdf.cell(0, 10, "Gracias por tu compra, mucha suerte!", ln=1)
+
+    return pdf.output(dest="S").encode("latin-1")
+
+# ========================
+# CONTROL DE ESTADOS (SESSION STATE)
+# ========================
+if "pdf_admin" not in st.session_state:
+    st.session_state.pdf_admin = None
+
+if "admin_login" not in st.session_state:
+    st.session_state.admin_login = False
+
+# ========================
+# INTERFAZ PRINCIPAL POR PESTAÑAS
+# ========================
+st.title("🎟️ RIFA PREMIUM")
+
+tab1, tab2 = st.tabs(["Reservar", "Administrador"])
+
+# ========================
+# PESTAÑA 1: RESERVAS
+# ========================
+with tab1:
+    cantidad = st.number_input("¿Cuántos números quieres?", 1, 20, 1, key="input_cant")
+    nombre = st.text_input("Nombre", key="input_nom")
+    telefono = st.text_input("Telefono", key="input_tel")
+
+    todos = [f"{i:03d}" for i in range(1000)]
+    
+    if not df.empty:
+        vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
+        reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
+    else:
+        vendidos = []
+        reservados = []
+
+    opciones = []
+    mapa = {}
+    for n in todos:
+        if n in vendidos:
+            label = f"🔴 {n} (Vendido)"
+        elif n in reservados:
+            label = f"🟡 {n} (Reservado)"
+        else:
+            label = f"🟢 {n}"
+        opciones.append(label)
+        mapa[label] = n
+
+    seleccion = st.multiselect("Selecciona números", opciones, key="multi_num")
+    numeros = [mapa[s] for s in seleccion if mapa[s] not in vendidos]
+
+    total = len(numeros) * PRECIO
+    st.success(f"💰 Total a pagar: ${total}")
+
+    if st.button("Reservar", key="btn_reservar"):
+        if not nombre or not telefono:
+            st.error("Completa los datos")
+        elif len(numeros) != cantidad:
+            st.error("Selecciona la cantidad correcta")
+        else:
+            nuevos = []
+            for n in numeros:
+                nuevos.append({
+                    "numero": n,
+                    "nombre": nombre,
+                    "telefono": telefono,
+                    "estado": "Pendiente"
+                })
+
+            df_actualizado = pd.concat([df, pd.DataFrame(nuevos)], ignore_index=True)
+            guardar(df_actualizado)
+            exportar_excel(df_actualizado)
+
+            st.success("✅ Reserva guardada con éxito")
+            st.rerun()
+
 # ========================
 # PESTAÑA 2: ADMINISTRADOR
 # ========================
@@ -58,7 +237,6 @@ with tab2:
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
 
-                        # ====== AQUÍ ESTABA EL ERROR (CORREGIDO) ======
                         # Generar el archivo PDF y asignarlo correctamente a session_state
                         pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
                         st.session_state.pdf_admin = {
@@ -67,4 +245,4 @@ with tab2:
                             "file": pdf_bytes
                         }
                         st.success(f"¡Boleto {row['numero']} aprobado!")
-                        st.rerun() # Fuerza a Streamlit a mostrar el botón de descarga inmediatamente
+                        st.rerun()
