@@ -230,8 +230,10 @@ with tab2:
 
                 # APROBAR BOLETO
                 with col1:
-                    if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}"):
-                        df.loc[df["numero"] == row["numero"], "estado"] = "Vendido"
+                    # SOLUCIÓN: Agregamos el índice de la fila 'i' a la key para que sea 100% única
+                    if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}_{i}"):
+                        # Modificamos usando la fila específica identificada por su índice único 'i'
+                        df.loc[i, "estado"] = "Vendido"
                         guardar(df)
                         
                         # Buscar todos los boletos comprados acumulados de este cliente específico
