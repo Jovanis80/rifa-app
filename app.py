@@ -16,7 +16,7 @@ PRECIO = 3000
 DB_FILE = "rifa_db.csv"
 
 # Contraseña fija del administrador
-ADMIN_PASSWORD = "admin"
+ADMIN_PASSWORD = "JVR_2026_SEGUR0"
 
 # ========================
 # FUNCIONES AUXILIARES DE CONVERSIÓN
