@@ -14,7 +14,7 @@ DB_FILE = "rifa_db.json"
 PRECIO = 3000
 
 # CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
-ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+ADMIN_PASSWORD = "admin123"
 
 # ========================
 # BASE DE DATOS RESISTENTE
