@@ -12,9 +12,6 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 PRECIO = 3000
 
-# Contraseña fija del administrador
-ADMIN_PASSWORD = "admin"
-
 # ========================
 # CONEXIÓN DIRECTA A GOOGLE SHEETS
 # ========================
@@ -22,7 +19,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def cargar():
     try:
-        # ttl="0d" obliga al sistema a leer datos en tiempo real de Google sin usar caché
         df_cargado = conn.read(ttl="0d")
         if df_cargado.empty:
             return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
@@ -32,12 +28,11 @@ def cargar():
 
 def guardar(df):
     try:
-        # Envía y actualiza la tabla de Google Sheets en la nube instantáneamente
         conn.update(data=df)
     except Exception as e:
         st.error(f"Error al guardar datos en la nube: {e}")
 
-# Carga inicial de datos desde la nube
+# Carga inicial de datos
 df = cargar()
 
 # ========================
@@ -116,9 +111,6 @@ def generar_pdf(nombre, telefono, numeros):
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
-if "admin_login" not in st.session_state:
-    st.session_state.admin_login = False
-
 # ========================
 # INTERFAZ PRINCIPAL POR PESTAÑAS
 # ========================
@@ -186,95 +178,89 @@ with tab1:
                 st.error("Uno o más números seleccionados ya no están disponibles.")
 
 # ========================
-# PESTAÑA 2: ADMINISTRADOR
+# PESTAÑA 2: ADMINISTRADOR (SIN LOCK / CON ACCESO DIRECTO)
 # ========================
 with tab2:
-    st.subheader("🔒 Panel Administrador")
-    
-    if not st.session_state.admin_login:
-        clave = st.text_input("Contraseña", type="password", key="pwd_admin_field")
-        if st.button("Ingresar", key="btn_login_admin"):
-            if clave == ADMIN_PASSWORD:
-                st.session_state.admin_login = True
-                st.rerun()
-            else:
-                st.error("❌ Contraseña incorrecta")
-    else:
-        st.success("Acceso concedido ✅")
-        
-        if st.button("Cerrar Sesión", key="btn_logout_admin"):
-            st.session_state.admin_login = False
+    st.subheader("🔓 Panel Administrador")
+    st.success("Acceso libre concedido ✅")
+
+    # Botón fijo superior para descargas de comprobantes generados
+    if st.session_state.pdf_admin is not None:
+        data = st.session_state.pdf_admin
+        st.download_button(
+            label=f"📄 Descargar comprobante de {data['nombre']}",
+            data=data["file"],
+            file_name=f"comprobante_{data['telefono']}.pdf",
+            mime="application/pdf",
+            key="download_pdf_btn"
+        )
+        if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
             st.session_state.pdf_admin = None
             st.rerun()
 
-        if st.session_state.pdf_admin is not None:
-            data = st.session_state.pdf_admin
-            st.download_button(
-                label=f"📄 Descargar comprobante de {data['nombre']}",
-                data=data["file"],
-                file_name=f"comprobante_{data['telefono']}.pdf",
-                mime="application/pdf",
-                key="download_pdf_btn"
-            )
-            if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
-                st.session_state.pdf_admin = None
-                st.rerun()
+    # Filtrar solicitudes pendientes
+    pendientes = df[df["estado"].str.strip() == "Pendiente"] if not df.empty else pd.DataFrame()
 
-        # Filtro de solicitudes con limpieza de strings
-        pendientes = df[df["estado"].str.strip() == "Pendiente"] if not df.empty else pd.DataFrame()
+    if pendientes.empty:
+        st.info("No hay reservas pendientes de aprobación")
+    else:
+        st.write("### 🟡 Pendientes")
 
-        if pendientes.empty:
-            st.info("No hay reservas pendientes de aprobación")
+        for i, row in pendientes.iterrows():
+            st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
+            col1, col2 = st.columns(2)
+
+            # BOTÓN APROBAR Y GENERAR PDF COMPROBANTE
+            with col1:
+                if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}_{i}"):
+                    df.loc[i, "estado"] = "Vendido"
+                    guardar(df)
+                    
+                    cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"].str.strip() == "Vendido")]
+                    numeros_cliente = cliente["numero"].tolist()
+
+                    pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
+                    st.session_state.pdf_admin = {
+                        "nombre": row["nombre"],
+                        "telefono": row["telefono"],
+                        "file": pdf_bytes
+                    }
+                    st.success(f"¡Boleto {row['numero']} aprobado!")
+                    st.rerun()
+
+            # BOTÓN RECHAZAR / ELIMINAR RESERVA
+            with col2:
+                if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}_{i}"):
+                    df = df.drop(i)
+                    guardar(df)
+                    st.warning(f"¡Reserva del boleto {row['numero']} eliminada!")
+                    st.rerun()
+
+    # ==========================================
+    # AGENDA DESPLEGABLE
+    # ==========================================
+    st.write("---")
+    
+    with st.expander("📋 Ver Agenda de Números Vendidos", expanded=False):
+        if df.empty:
+            st.info("Aún no hay base de datos registrada.")
         else:
-            st.write("### 🟡 Pendientes")
-
-            for i, row in pendientes.iterrows():
-                st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
-                col1, col2 = st.columns(2)
-
-                # APROBAR BOLETO
-                with col1:
-                    if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}_{i}"):
-                        df.loc[i, "estado"] = "Vendido"
-                        guardar(df)
-                        
-                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"].str.strip() == "Vendido")]
-                        numeros_cliente = cliente["numero"].tolist()
-
-                        pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
-                        st.session_state.pdf_admin = {
-                            "nombre": row["nombre"],
-                            "telefono": row["telefono"],
-                            "file": pdf_bytes
-                        }
-                        st.success(f"¡Boleto {row['numero']} aprobado!")
-                        st.rerun()
-
-                # RECHAZAR / ELIMINAR RESERVA ERRONEA
-                with col2:
-                    if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}_{i}"):
-                        df = df.drop(i)
-                        guardar(df)
-                        st.warning(f"¡Reserva del boleto {row['numero']} eliminada!")
-                        st.rerun()
-
-        # ==========================================
-        # AGENDA DESPLEGABLE
-        # ==========================================
-        st.write("---")
-        
-        with st.expander("📋 Ver Agenda de Números Vendidos", expanded=False):
-            if df.empty:
-                st.info("Aún no hay base de datos registrada.")
+            v_df = df[df["estado"].str.strip() == "Vendido"].copy()
+            if v_df.empty:
+                st.info("Aún no se han vendido números.")
             else:
-                v_df = df[df["estado"].str.strip() == "Vendido"].copy()
-                if v_df.empty:
-                    st.info("Aún no se han vendido números.")
-                else:
-                    v_df = v_df.sort_values(by="numero")
-                    columnas_renombradas = {"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
-                    vista_agenda = v_df[["numero", "nombre", "telefono"]].rename(columns=columnas_renombradas)
-                    
-                    st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
-                    
-                    excel_bytes = generar_excel_bytes(vista_agenda)
+                v_df = v_df.sort_values(by="numero")
+                columnas_renombradas = {"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
+                vista_agenda = v_df[["numero", "nombre", "telefono"]].rename(columns=columnas_renombradas)
+                
+                st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
+                
+                excel_bytes = generar_excel_bytes(vista_agenda)
+                if excel_bytes:
+                    st.download_button(
+                        label="📥 Descargar Agenda Completa (Excel)",
+                        data=excel_bytes,
+                        file_name="agenda_rifa.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="btn_descargar_excel_agenda"
+                    )
