@@ -13,6 +13,9 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 DB_FILE = "rifa_db.json"
 PRECIO = 3000
 
+# CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
+ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
+
 # ========================
 # BASE DE DATOS RESISTENTE
 # ========================
@@ -107,6 +110,9 @@ def generar_pdf(nombre, telefono, numeros):
 if "pdf_admin" not in st.session_state:
     st.session_state.pdf_admin = None
 
+if "admin_login" not in st.session_state:
+    st.session_state.admin_login = False
+
 # ========================
 # INTERFAZ PRINCIPAL POR PESTAÑAS
 # ========================
@@ -172,57 +178,71 @@ with tab1:
             st.rerun()
 
 # ========================
-# PESTAÑA 2: ADMINISTRADOR (SIN CONTRASEÑA)
+# PESTAÑA 2: ADMINISTRADOR
 # ========================
 with tab2:
-    st.subheader("🔓 Panel Administrador")
-    st.success("Acceso libre activado ✅")
-
-    # Botón fijo superior para descargas de comprobantes generados
-    if st.session_state.pdf_admin is not None:
-        data = st.session_state.pdf_admin
-        st.download_button(
-            label=f"📄 Descargar comprobante de {data['nombre']}",
-            data=data["file"],
-            file_name=f"comprobante_{data['telefono']}.pdf",
-            mime="application/pdf",
-            key="download_pdf_btn"
-        )
-        if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
+    st.subheader("🔒 Panel Administrador")
+    
+    if not st.session_state.admin_login:
+        clave = st.text_input("Contraseña", type="password", key="pwd_admin_field")
+        if st.button("Ingresar", key="btn_login_admin"):
+            if clave == ADMIN_PASSWORD:
+                st.session_state.admin_login = True
+                st.rerun()
+            else:
+                st.error("❌ Contraseña incorrecta")
+    else:
+        st.success("Acceso concedido ✅")
+        
+        if st.button("Cerrar Sesión", key="btn_logout_admin"):
+            st.session_state.admin_login = False
             st.session_state.pdf_admin = None
             st.rerun()
 
-    # Filtrar solicitudes pendientes
-    pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
+        # Botón fijo superior para descargas de comprobantes generados
+        if st.session_state.pdf_admin is not None:
+            data = st.session_state.pdf_admin
+            st.download_button(
+                label=f"📄 Descargar comprobante de {data['nombre']}",
+                data=data["file"],
+                file_name=f"comprobante_{data['telefono']}.pdf",
+                mime="application/pdf",
+                key="download_pdf_btn"
+            )
+            if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
+                st.session_state.pdf_admin = None
+                st.rerun()
 
-    if pendientes.empty:
-        st.info("No hay reservas pendientes de aprobación")
-    else:
-        st.write("### 🟡 Pendientes")
+        # Filtrar solicitudes pendientes
+        pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
 
-        # Muestra cada solicitud pendiente en filas individuales con botones independientes
-        for i, row in pendientes.iterrows():
-            st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
-            col1, col2 = st.columns(2)
+        if pendientes.empty:
+            st.info("No hay reservas pendientes de aprobación")
+        else:
+            st.write("### 🟡 Pendientes")
 
-            # APROBAR BOLETO
-            with col1:
-                if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}"):
-                    df.loc[df["numero"] == row["numero"], "estado"] = "Vendido"
-                    guardar(df)
-                    exportar_excel(df)
-                    
-                    # Buscar todos los boletos comprados acumulados de este cliente específico
-                    cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
-                    numeros_cliente = cliente["numero"].tolist()
+            # Muestra cada solicitud pendiente en filas individuales con botones independientes
+            for i, row in pendientes.iterrows():
+                st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
+                col1, col2 = st.columns(2)
 
-                    # Generar el archivo PDF y asignarlo al estado para descarga inmediata
-                    pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
-                    st.session_state.pdf_admin = {
-                        "nombre": row["nombre"],
-                        "telefono": row["telefono"],
-                        "file": pdf_bytes
-                    }
-                    st.success(f"¡Boleto {row['numero']} aprobado!")
-                    st.rerun()
+                # APROBAR BOLETO
+                with col1:
+                    if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}"):
+                        df.loc[df["numero"] == row["numero"], "estado"] = "Vendido"
+                        guardar(df)
+                        exportar_excel(df)
+                        
+                        # Buscar todos los boletos comprados acumulados de este cliente específico
+                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
+                        numeros_cliente = cliente["numero"].tolist()
 
+                        # Generar el archivo PDF y asignarlo correctamente a session_state
+                        pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
+                        st.session_state.pdf_admin = {
+                            "nombre": row["nombre"],
+                            "telefono": row["telefono"],
+                            "file": pdf_bytes
+                        }
+                        st.success(f"¡Boleto {row['numero']} aprobado!")
+                        st.rerun()
