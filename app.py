@@ -1,48 +1,46 @@
 import streamlit as st
 import pandas as pd
-import os
-import json
 from fpdf import FPDF
 from datetime import datetime
+from streamlit_gsheets import GSheetsConnection
 
 # ========================
 # CONFIGURACIÓN DE PÁGINA
 # ========================
 st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
-DB_FILE = "rifa_db.json"
 PRECIO = 3000
 
-# CAMBIO DE SEGURIDAD CRÍTICO: Lee la contraseña de forma oculta desde Streamlit Cloud
+# Lee la contraseña de forma oculta desde Streamlit Cloud Secrets
 ADMIN_PASSWORD = st.secrets["ADMIN_PASSWORD"]
 
 # ========================
-# BASE DE DATOS RESISTENTE
+# BASE DE DATOS EN LA NUBE (GOOGLE SHEETS)
 # ========================
+# Creamos la conexión oficial con tu hoja de cálculo
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 def cargar():
-    if not os.path.exists(DB_FILE):
-        df = pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
-        guardar(df)
-        return df
     try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            datos = json.load(f)
-        df_cargado = pd.DataFrame(datos)
+        # Intenta leer la hoja llamada "respuestas" (o la primera por defecto)
+        df_cargado = conn.read(ttl="0d") # ttl="0d" deshabilita la caché para leer datos en tiempo real
         if df_cargado.empty:
             return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
         return df_cargado.astype(str).fillna("")
     except Exception:
+        # Si la hoja no existe o está vacía, devuelve la estructura base
         return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
 
 def guardar(df):
-    datos_dict = df.to_dict(orient="records")
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(datos_dict, f, ensure_ascii=False, indent=4)
+    try:
+        # Sube y sobrescribe la hoja de cálculo en la nube instantáneamente
+        conn.update(data=df)
+        # Opcional: mantiene una copia local de respaldo en el servidor
+        df.to_excel("compradores.xlsx", index=False)
+    except Exception as e:
+        st.error(f"Error al guardar en la nube: {e}")
 
-def exportar_excel(df):
-    df.to_excel("compradores.xlsx", index=False)
-
-# Carga inicial de datos
+# Carga inicial de datos desde la nube
 df = cargar()
 
 # ========================
@@ -172,7 +170,6 @@ with tab1:
 
             df_actualizado = pd.concat([df, pd.DataFrame(nuevos)], ignore_index=True)
             guardar(df_actualizado)
-            exportar_excel(df_actualizado)
 
             st.success("✅ Reserva guardada con éxito")
             st.rerun()
@@ -231,13 +228,12 @@ with tab2:
                     if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}"):
                         df.loc[df["numero"] == row["numero"], "estado"] = "Vendido"
                         guardar(df)
-                        exportar_excel(df)
                         
                         # Buscar todos los boletos comprados acumulados de este cliente específico
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
 
-                        # Generar el archivo PDF y asignarlo correctamente a session_state
+                        # Generar el archivo PDF y guardarlo en el estado de la sesión
                         pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
                         st.session_state.pdf_admin = {
                             "nombre": row["nombre"],
