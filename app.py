@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import io
 from fpdf import FPDF
 from datetime import datetime
 
@@ -130,7 +131,6 @@ with tab1:
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
-        # CORRECCIÓN: Quitamos espacios vacíos accidentales en la lectura
         vendidos = df[df["estado"].str.strip() == "Vendido"]["numero"].tolist()
         reservados = df[df["estado"].str.strip() == "Pendiente"]["numero"].tolist()
     else:
@@ -214,7 +214,7 @@ with tab2:
                 st.session_state.pdf_admin = None
                 st.rerun()
 
-        # CORRECCIÓN: Filtro de solicitudes con limpieza de strings (.str.strip())
+        # Filtro de solicitudes con limpieza de strings
         pendientes = df[df["estado"].str.strip() == "Pendiente"] if not df.empty else pd.DataFrame()
 
         if pendientes.empty:
@@ -241,7 +241,7 @@ with tab2:
                             "telefono": row["telefono"],
                             "file": pdf_bytes
                         }
-                        st.success(f"¡Boleto {row['numero']} aprobado!")
+                        st.success(f"¡Boleto {row['numero']} approved!")
                         st.rerun()
 
                 # RECHAZAR / ELIMINAR RESERVA ERRONEA
@@ -258,7 +258,6 @@ with tab2:
         st.write("---")
         st.write("### 📋 Agenda de Números Vendidos")
         
-        # CORRECCIÓN: Búsqueda exacta omitiendo fallas de formato de strings
         if not df.empty:
             vendidos_df = df[df["estado"].str.strip() == "Vendido"].copy()
         else:
@@ -277,6 +276,7 @@ with tab2:
             # Dibujamos el dataframe limpio
             st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
 
+            # ESTRUCTURA CORREGIDA: Se alineó correctamente todo el bloque try/except de la exportación a Excel
             try:
-                import io
                 output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
