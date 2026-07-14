@@ -265,20 +265,17 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # SOLUCIÓN: AGENDA DENTRO DE UN DESPLEGABLE (EXPANDER)
+        # AGENDA DESPLEGABLE OPTIMIZADA EN LÍNEAS CORTAS
         # ==========================================
         st.write("---")
         
         with st.expander("📋 Ver Agenda de Números Vendidos", expanded=False):
-            if not df.empty:
-                vendidos_df = df[df["estado"].str.strip() == "Vendido"].copy()
+            if df.empty:
+                st.info("Aún no hay base de datos registrada.")
             else:
-                vendidos_df = pd.DataFrame()
-
-            if vendidos_df.empty:
-                st.info("Aún no se han vendido números.")
-            else:
-                # Ordenamos la lista por número de boleto de menor a mayor
-                vendidos_df = vendidos_df.sort_values(by="numero")
-                
-                vista_agenda = vendidos_df[["numero", "nombre", "telefono"]].rename(
+                v_df = df[df["estado"].str.strip() == "Vendido"].copy()
+                if v_df.empty:
+                    st.info("Aún no se han vendido números.")
+                else:
+                    v_df = v_df.sort_values(by="numero")
+                    columnas_renombradas = {"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
