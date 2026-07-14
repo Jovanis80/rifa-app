@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import os
 import io
 from fpdf import FPDF
 from datetime import datetime
+from streamlit_gsheets import GSheetsConnection
 
 # ========================
 # CONFIGURACIÓN DE PÁGINA
@@ -12,11 +12,33 @@ st.set_page_config(page_title="Rifa", page_icon="🎟️")
 
 PRECIO = 3000
 
-# Archivo de datos unificado local para máxima velocidad
-DB_FILE = "rifa_db.csv"
-
 # Contraseña fija del administrador
 ADMIN_PASSWORD = "admin"
+
+# ========================
+# CONEXIÓN DIRECTA A GOOGLE SHEETS
+# ========================
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+def cargar():
+    try:
+        # ttl="0d" obliga al sistema a leer datos en tiempo real de Google sin usar caché
+        df_cargado = conn.read(ttl="0d")
+        if df_cargado.empty:
+            return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+        return df_cargado.astype(str).fillna("")
+    except Exception:
+        return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+
+def guardar(df):
+    try:
+        # Envía y actualiza la tabla de Google Sheets en la nube instantáneamente
+        conn.update(data=df)
+    except Exception as e:
+        st.error(f"Error al guardar datos en la nube: {e}")
+
+# Carga inicial de datos desde la nube
+df = cargar()
 
 # ========================
 # FUNCIONES AUXILIARES DE CONVERSIÓN
@@ -28,31 +50,6 @@ def generar_excel_bytes(dataframe_agenda):
         return output_buffer.getvalue()
     except Exception:
         return b""
-
-# ========================
-# BASE DE DATOS RESISTENTE 
-# ========================
-def cargar():
-    if not os.path.exists(DB_FILE):
-        df = pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
-        guardar(df)
-        return df
-    try:
-        df_cargado = pd.read_csv(DB_FILE)
-        if df_cargado.empty:
-            return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
-        return df_cargado.astype(str).fillna("")
-    except Exception:
-        return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
-
-def guardar(df):
-    try:
-        df.to_csv(DB_FILE, index=False)
-    except Exception as e:
-        st.error(f"Error al guardar datos: {e}")
-
-# Carga inicial de datos
-df = cargar()
 
 # ========================
 # GENERADOR DE PDF
@@ -262,7 +259,7 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # AGENDA DESPLEGABLE REESTRUCTURADA PLANA
+        # AGENDA DESPLEGABLE
         # ==========================================
         st.write("---")
         
@@ -280,4 +277,4 @@ with tab2:
                     
                     st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
                     
-                    # CORRECCIÓN DEFINITIVA: Renderizado directo sin 'if' propenso a fallas de espaciado
+                    excel_bytes = generar_excel_bytes(vista_agenda)
