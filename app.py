@@ -242,13 +242,15 @@ with tab2:
                 st.rerun()
 
         # Filtro de solicitudes pendientes
-        pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
+        if not df.empty:
+            pendientes = df[df["estado"] == "Pendiente"]
+        else:
+            pendientes = pd.DataFrame()
 
         if pendientes.empty:
             st.info("No hay reservas pendientes de aprobación")
         else:
             st.write("### 🟡 Pendientes por Aprobar")
-
             for i, row in pendientes.iterrows():
                 num_formateado = str(row['numero']).zfill(3)
                 st.write(f"**Número:** {num_formateado} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
@@ -279,9 +281,8 @@ with tab2:
                         st.rerun()
 
         # ==========================================
-        # VISUALIZADOR DESTACADO DE CLIENTES
+        # VISUALIZADOR GENERAL DE REGISTROS
         # ==========================================
         st.markdown("---")
         st.markdown("### 🟦 BASE DE DATOS DE CLIENTES GENERAL")
 
-        if df.empty:
