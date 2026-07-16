@@ -30,7 +30,7 @@ def generar_excel_bytes(dataframe_agenda):
         return b""
 
 # ========================
-# BASE DE DATOS RESISTENTE (CORREGIDA PARA 3 CIFRAS)
+# BASE DE DATOS ULTRA-RESISTENTE (CON REPARADOR DE DATOS VIEJOS)
 # ========================
 def cargar():
     if not os.path.exists(DB_FILE):
@@ -38,16 +38,27 @@ def cargar():
         guardar(df)
         return df
     try:
-        # CORRECCIÓN: Forzamos a leer 'numero' como texto para que no borre los ceros
-        df_cargado = pd.read_csv(DB_FILE, dtype={"numero": str, "nombre": str, "telefono": str, "estado": str})
+        # 1. Leemos el archivo permitiendo cualquier tipo de dato para no romper los registros existentes
+        df_cargado = pd.read_csv(DB_FILE)
+        
         if df_cargado.empty:
             return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
         
-        # Aseguramos que cualquier número que se haya guardado mal se rellene a 3 cifras
-        df_cargado["numero"] = df_cargado["numero"].astype(str).str.zfill(3)
-        return df_cargado.fillna("")
+        # 2. Convertimos todo a texto de forma segura
+        df_cargado = df_cargado.astype(str).fillna("")
+        
+        # 3. REPARADOR: Si el número fue guardado como entero (ej: "7" o "45"), lo rellena a 3 cifras ("007", "045")
+        df_cargado["numero"] = df_cargado["numero"].apply(lambda x: str(int(float(x))).zfill(3) if x.replace('.','',1).isdigit() else str(x).zfill(3))
+        
+        return df_cargado
     except Exception:
-        return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+        # Alternativa de emergencia si el archivo tiene un formato extraño
+        try:
+            df_cargado = pd.read_csv(DB_FILE, dtype=str)
+            df_cargado["numero"] = df_cargado["numero"].str.zfill(3)
+            return df_cargado.fillna("")
+        except Exception:
+            return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
 
 def guardar(df):
     try:
@@ -88,7 +99,6 @@ def generar_pdf(nombre, telefono, numeros):
     
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", "B", 12)
-    # Formateamos a 3 cifras en el PDF por seguridad
     numeros_3_cifras = [str(n).zfill(3) for n in numeros]
     pdf.cell(0, 8, " - ".join(numeros_3_cifras), ln=1)
     pdf.ln(4)
@@ -149,7 +159,6 @@ with tab1:
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
-        # Aseguramos limpieza estricta y formato de 3 cifras al buscar
         df["numero"] = df["numero"].astype(str).str.zfill(3)
         vendidos = df[df["estado"].str.strip() == "Vendido"]["numero"].tolist()
         reservados = df[df["estado"].str.strip() == "Pendiente"]["numero"].tolist()
@@ -183,7 +192,6 @@ with tab1:
         else:
             nuevos = []
             for n in numeros:
-                # Forzar formato de 3 cifras en la verificación
                 n_str = str(n).zfill(3)
                 if n_str not in df["numero"].tolist():
                     nuevos.append({
@@ -270,10 +278,3 @@ with tab2:
                     if st.button(f"❌ Rechazar {num_formateado}", key=f"reject_btn_{num_formateado}_{i}"):
                         df_limpio = df.drop(i)
                         guardar(df_limpio)
-                        st.warning(f"Reserva {num_formateado} rechazada")
-                        st.rerun()
-
-        # ==========================================
-        # VISUALIZADOR DE DATOS CORREGIDO
-        # ==========================================
-        st.write("---")
