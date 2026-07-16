@@ -30,9 +30,16 @@ def generar_excel_bytes(dataframe_agenda):
         return b""
 
 # ========================
-# BASE DE DATOS ULTRA-RESISTENTE CON AUTOLIMPIEZA
+# BASE DE DATOS ULTRA-RESISTENTE CON RASTREADOR DE SEGURIDAD
 # ========================
 def cargar():
+    # RASTREADOR: Si el archivo principal no aparece, busca copias sueltas en el servidor
+    global DB_FILE
+    if not os.path.exists(DB_FILE):
+        posibles_archivos = [f for f in os.listdir(".") if "rifa" in f and f.endswith(".csv")]
+        if posibles_archivos:
+            DB_FILE = posibles_archivos[0] # Conecta automáticamente con el archivo viejo encontrado
+
     if not os.path.exists(DB_FILE):
         df = pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
         guardar(df)
@@ -276,13 +283,3 @@ with tab2:
                 with col2:
                     if st.button(f"❌ Rechazar {num_formateado}", key=f"reject_btn_{num_formateado}_{i}"):
                         df_limpio = df.drop(i)
-                        guardar(df_limpio)
-                        st.warning(f"Reserva {num_formateado} rechazada")
-                        st.rerun()
-
-        # ==========================================
-        # VISUALIZADOR GENERAL DE REGISTROS
-        # ==========================================
-        st.markdown("---")
-        st.markdown("### 🟦 BASE DE DATOS DE CLIENTES GENERAL")
-
