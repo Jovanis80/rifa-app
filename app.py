@@ -24,6 +24,7 @@ ADMIN_PASSWORD = "JVR_2026_SEGUR0"
 def generar_excel_bytes(dataframe_agenda):
     try:
         output_buffer = io.BytesIO()
+        # Se requiere openpyxl instalado
         dataframe_agenda.to_excel(output_buffer, index=False, engine='openpyxl')
         return output_buffer.getvalue()
     except Exception:
@@ -137,7 +138,6 @@ with tab1:
     nombre = st.text_input("Nombre", key="input_nom")
     telefono = st.text_input("Telefono", key="input_tel")
 
-    # Mantenemos las 3 cifras originales (000 - 999)
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
@@ -236,7 +236,6 @@ with tab2:
                 st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
                 col1, col2 = st.columns(2)
 
-                # ✅ BOTÓN APROBAR (Lógica corregida y completada)
                 with col1:
                     if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}_{i}"):
                         df.loc[i, "estado"] = "Vendido"
@@ -254,10 +253,34 @@ with tab2:
                         st.success(f"Boleto {row['numero']} aprobado")
                         st.rerun()
                 
-                # ❌ BOTÓN RECHAZAR
                 with col2:
                     if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}_{i}"):
                         df_limpio = df.drop(i)
                         guardar(df_limpio)
                         st.warning(f"Reserva {row['numero']} rechazada")
                         st.rerun()
+
+        # ==========================================
+        # NUEVA SECCIÓN: NUEVO VISUALIZADOR DE DATOS
+        # ==========================================
+        st.write("---")
+        st.write("### 👥 Base de Datos de Clientes")
+
+        if df.empty:
+            st.info("Aún no hay ningún registro en la base de datos.")
+        else:
+            # Buscador rápido por nombre, teléfono o número
+            busqueda = st.text_input("🔍 Buscar cliente por nombre, teléfono o número:", key="search_cliente")
+            
+            df_mostrar = df.copy()
+            if busqueda:
+                df_mostrar = df_mostrar[
+                    df_mostrar["nombre"].str.contains(busqueda, case=False, na=False) |
+                    df_mostrar["telefono"].str.contains(busqueda, case=False, na=False) |
+                    df_mostrar["numero"].str.contains(busqueda, case=False, na=False)
+                ]
+
+            # Mostrar la tabla ordenada e interactiva
+            st.dataframe(df_mostrar, use_container_width=True)
+
+            # Botón opcional para descargar todos los datos en Excel
