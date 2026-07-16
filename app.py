@@ -30,7 +30,7 @@ def generar_excel_bytes(dataframe_agenda):
         return b""
 
 # ========================
-# BASE DE DATOS ULTRA-RESISTENTE (CON REPARADOR DE DATOS VIEJOS)
+# BASE DE DATOS ULTRA-RESISTENTE CON AUTOLIMPIEZA
 # ========================
 def cargar():
     if not os.path.exists(DB_FILE):
@@ -38,31 +38,35 @@ def cargar():
         guardar(df)
         return df
     try:
-        # 1. Leemos el archivo permitiendo cualquier tipo de dato para no romper los registros existentes
+        # Forzar lectura limpia
         df_cargado = pd.read_csv(DB_FILE)
         
-        if df_cargado.empty:
-            return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
-        
-        # 2. Convertimos todo a texto de forma segura
+        # Si las columnas no coinciden o están dañadas, las reparamos
+        if df_cargado.empty or not all(col in df_cargado.columns for col in ["numero", "nombre", "telefono", "estado"]):
+            # Si se dañó el encabezado, intentamos reconstruirlo
+            df_cargado = pd.read_csv(DB_FILE, names=["numero", "nombre", "telefono", "estado"], header=None, skiprows=1)
+            
         df_cargado = df_cargado.astype(str).fillna("")
         
-        # 3. REPARADOR: Si el número fue guardado como entero (ej: "7" o "45"), lo rellena a 3 cifras ("007", "045")
-        df_cargado["numero"] = df_cargado["numero"].apply(lambda x: str(int(float(x))).zfill(3) if x.replace('.','',1).isdigit() else str(x).zfill(3))
-        
+        # Limpieza estricta de espacios y saltos de línea ocultos
+        for col in df_cargado.columns:
+            df_cargado[col] = df_cargado[col].str.strip()
+
+        # REPARADOR DE 3 CIFRAS: Corrige registros como '7' -> '007'
+        def formatear_tres_cifras(x):
+            try:
+                return str(int(float(x))).zfill(3)
+            except:
+                return str(x).zfill(3)[:3]
+
+        df_cargado["numero"] = df_cargado["numero"].apply(formatear_tres_cifras)
         return df_cargado
     except Exception:
-        # Alternativa de emergencia si el archivo tiene un formato extraño
-        try:
-            df_cargado = pd.read_csv(DB_FILE, dtype=str)
-            df_cargado["numero"] = df_cargado["numero"].str.zfill(3)
-            return df_cargado.fillna("")
-        except Exception:
-            return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
+        # Retorno de emergencia absoluta para no perder la app
+        return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
 
 def guardar(df):
     try:
-        # Aseguramos formato texto de 3 cifras antes de escribir en el archivo
         if not df.empty:
             df["numero"] = df["numero"].astype(str).str.zfill(3)
         df.to_csv(DB_FILE, index=False)
@@ -159,9 +163,8 @@ with tab1:
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
-        df["numero"] = df["numero"].astype(str).str.zfill(3)
-        vendidos = df[df["estado"].str.strip() == "Vendido"]["numero"].tolist()
-        reservados = df[df["estado"].str.strip() == "Pendiente"]["numero"].tolist()
+        vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
+        reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
     else:
         vendidos = []
         reservados = []
@@ -244,13 +247,13 @@ with tab2:
                 st.session_state.pdf_admin = None
                 st.rerun()
 
-        # Filtro de solicitudes con limpieza de strings
-        pendientes = df[df["estado"].str.strip() == "Pendiente"] if not df.empty else pd.DataFrame()
+        # Filtro de solicitudes pendientes
+        pendientes = df[df["estado"] == "Pendiente"] if not df.empty else pd.DataFrame()
 
         if pendientes.empty:
             st.info("No hay reservas pendientes de aprobación")
         else:
-            st.write("### 🟡 Pendientes")
+            st.write("### 🟡 Pendientes por Aprobar")
 
             for i, row in pendientes.iterrows():
                 num_formateado = str(row['numero']).zfill(3)
@@ -262,7 +265,7 @@ with tab2:
                         df.loc[i, "estado"] = "Vendido"
                         guardar(df)
                         
-                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"].str.strip() == "Vendido")]
+                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
                         numeros_cliente = [str(n).zfill(3) for n in cliente["numero"].tolist()]
 
                         pdf_bytes = generar_pdf(row['nombre'], row['telefono'], numeros_cliente)
@@ -278,3 +281,4 @@ with tab2:
                     if st.button(f"❌ Rechazar {num_formateado}", key=f"reject_btn_{num_formateado}_{i}"):
                         df_limpio = df.drop(i)
                         guardar(df_limpio)
+                        st.warning(f"Reserva {num_formateado} rechazada")
