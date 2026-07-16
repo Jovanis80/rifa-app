@@ -38,21 +38,15 @@ def cargar():
         guardar(df)
         return df
     try:
-        # Forzar lectura limpia
         df_cargado = pd.read_csv(DB_FILE)
-        
-        # Si las columnas no coinciden o están dañadas, las reparamos
         if df_cargado.empty or not all(col in df_cargado.columns for col in ["numero", "nombre", "telefono", "estado"]):
-            # Si se dañó el encabezado, intentamos reconstruirlo
             df_cargado = pd.read_csv(DB_FILE, names=["numero", "nombre", "telefono", "estado"], header=None, skiprows=1)
             
         df_cargado = df_cargado.astype(str).fillna("")
         
-        # Limpieza estricta de espacios y saltos de línea ocultos
         for col in df_cargado.columns:
             df_cargado[col] = df_cargado[col].str.strip()
 
-        # REPARADOR DE 3 CIFRAS: Corrige registros como '7' -> '007'
         def formatear_tres_cifras(x):
             try:
                 return str(int(float(x))).zfill(3)
@@ -62,7 +56,6 @@ def cargar():
         df_cargado["numero"] = df_cargado["numero"].apply(formatear_tres_cifras)
         return df_cargado
     except Exception:
-        # Retorno de emergencia absoluta para no perder la app
         return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
 
 def guardar(df):
@@ -163,6 +156,7 @@ with tab1:
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
+        df["numero"] = df["numero"].astype(str).str.zfill(3)
         vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
         reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
     else:
@@ -282,3 +276,12 @@ with tab2:
                         df_limpio = df.drop(i)
                         guardar(df_limpio)
                         st.warning(f"Reserva {num_formateado} rechazada")
+                        st.rerun()
+
+        # ==========================================
+        # VISUALIZADOR DESTACADO DE CLIENTES
+        # ==========================================
+        st.markdown("---")
+        st.markdown("### 🟦 BASE DE DATOS DE CLIENTES GENERAL")
+
+        if df.empty:
