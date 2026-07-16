@@ -137,6 +137,7 @@ with tab1:
     nombre = st.text_input("Nombre", key="input_nom")
     telefono = st.text_input("Telefono", key="input_tel")
 
+    # Mantenemos las 3 cifras originales (000 - 999)
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
@@ -235,7 +236,7 @@ with tab2:
                 st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
                 col1, col2 = st.columns(2)
 
-                # APROBAR BOLETO
+                # ✅ BOTÓN APROBAR (Lógica corregida y completada)
                 with col1:
                     if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}_{i}"):
                         df.loc[i, "estado"] = "Vendido"
@@ -244,40 +245,19 @@ with tab2:
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"].str.strip() == "Vendido")]
                         numeros_cliente = cliente["numero"].tolist()
 
-                        pdf_bytes = generar_pdf(row["nombre"], row["telefono"], numeros_cliente)
+                        pdf_bytes = generar_pdf(row['nombre'], row['telefono'], numeros_cliente)
                         st.session_state.pdf_admin = {
-                            "nombre": row["nombre"],
-                            "telefono": row["telefono"],
+                            "nombre": row['nombre'],
+                            "telefono": row['telefono'],
                             "file": pdf_bytes
                         }
-                        st.success(f"¡Boleto {row['numero']} aprobado!")
+                        st.success(f"Boleto {row['numero']} aprobado")
                         st.rerun()
-
-                # RECHAZAR / ELIMINAR RESERVA ERRONEA
+                
+                # ❌ BOTÓN RECHAZAR
                 with col2:
                     if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}_{i}"):
-                        df = df.drop(i)
-                        guardar(df)
-                        st.warning(f"¡Reserva del boleto {row['numero']} eliminada!")
+                        df_limpio = df.drop(i)
+                        guardar(df_limpio)
+                        st.warning(f"Reserva {row['numero']} rechazada")
                         st.rerun()
-
-        # ==========================================
-        # AGENDA DESPLEGABLE REESTRUCTURADA PLANA
-        # ==========================================
-        st.write("---")
-        
-        with st.expander("📋 Ver Agenda de Números Vendidos", expanded=False):
-            if df.empty:
-                st.info("Aún no hay base de datos registrada.")
-            else:
-                v_df = df[df["estado"].str.strip() == "Vendido"].copy()
-                if v_df.empty:
-                    st.info("Aún no se han vendido números.")
-                else:
-                    v_df = v_df.sort_values(by="numero")
-                    columnas_renombradas = {"numero": "Boleto", "nombre": "Nombre del Cliente", "telefono": "Teléfono"}
-                    vista_agenda = v_df[["numero", "nombre", "telefono"]].rename(columns=columnas_renombradas)
-                    
-                    st.dataframe(vista_agenda, use_container_width=True, hide_index=True)
-                    
-                    # CORRECCIÓN DEFINITIVA: Renderizado directo sin 'if' propenso a fallas de espaciado
