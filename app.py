@@ -284,4 +284,4 @@ with tab2:
         st.markdown("---")
         st.markdown("### 🟦 BASE DE DATOS DE CLIENTES GENERAL")
 
-          if df.empty:
+        if df.empty:
