@@ -24,14 +24,13 @@ ADMIN_PASSWORD = "JVR_2026_SEGUR0"
 def generar_excel_bytes(dataframe_agenda):
     try:
         output_buffer = io.BytesIO()
-        # Se requiere openpyxl instalado
         dataframe_agenda.to_excel(output_buffer, index=False, engine='openpyxl')
         return output_buffer.getvalue()
     except Exception:
         return b""
 
 # ========================
-# BASE DE DATOS RESISTENTE 
+# BASE DE DATOS RESISTENTE (CORREGIDA PARA 3 CIFRAS)
 # ========================
 def cargar():
     if not os.path.exists(DB_FILE):
@@ -39,15 +38,22 @@ def cargar():
         guardar(df)
         return df
     try:
-        df_cargado = pd.read_csv(DB_FILE)
+        # CORRECCIÓN: Forzamos a leer 'numero' como texto para que no borre los ceros
+        df_cargado = pd.read_csv(DB_FILE, dtype={"numero": str, "nombre": str, "telefono": str, "estado": str})
         if df_cargado.empty:
             return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
-        return df_cargado.astype(str).fillna("")
+        
+        # Aseguramos que cualquier número que se haya guardado mal se rellene a 3 cifras
+        df_cargado["numero"] = df_cargado["numero"].astype(str).str.zfill(3)
+        return df_cargado.fillna("")
     except Exception:
         return pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
 
 def guardar(df):
     try:
+        # Aseguramos formato texto de 3 cifras antes de escribir en el archivo
+        if not df.empty:
+            df["numero"] = df["numero"].astype(str).str.zfill(3)
         df.to_csv(DB_FILE, index=False)
     except Exception as e:
         st.error(f"Error al guardar datos: {e}")
@@ -82,7 +88,9 @@ def generar_pdf(nombre, telefono, numeros):
     
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 8, " - ".join(numeros), ln=1)
+    # Formateamos a 3 cifras en el PDF por seguridad
+    numeros_3_cifras = [str(n).zfill(3) for n in numeros]
+    pdf.cell(0, 8, " - ".join(numeros_3_cifras), ln=1)
     pdf.ln(4)
 
     pdf.set_font("Arial", "B", 11)
@@ -141,6 +149,8 @@ with tab1:
     todos = [f"{i:03d}" for i in range(1000)]
     
     if not df.empty:
+        # Aseguramos limpieza estricta y formato de 3 cifras al buscar
+        df["numero"] = df["numero"].astype(str).str.zfill(3)
         vendidos = df[df["estado"].str.strip() == "Vendido"]["numero"].tolist()
         reservados = df[df["estado"].str.strip() == "Pendiente"]["numero"].tolist()
     else:
@@ -173,9 +183,11 @@ with tab1:
         else:
             nuevos = []
             for n in numeros:
-                if n not in df["numero"].tolist():
+                # Forzar formato de 3 cifras en la verificación
+                n_str = str(n).zfill(3)
+                if n_str not in df["numero"].tolist():
                     nuevos.append({
-                        "numero": n,
+                        "numero": n_str,
                         "nombre": nombre,
                         "telefono": telefono,
                         "estado": "Pendiente"
@@ -233,16 +245,17 @@ with tab2:
             st.write("### 🟡 Pendientes")
 
             for i, row in pendientes.iterrows():
-                st.write(f"**Número:** {row['numero']} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
+                num_formateado = str(row['numero']).zfill(3)
+                st.write(f"**Número:** {num_formateado} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    if st.button(f"✅ Aprobar {row['numero']}", key=f"approve_btn_{row['numero']}_{i}"):
+                    if st.button(f"✅ Aprobar {num_formateado}", key=f"approve_btn_{num_formateado}_{i}"):
                         df.loc[i, "estado"] = "Vendido"
                         guardar(df)
                         
                         cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"].str.strip() == "Vendido")]
-                        numeros_cliente = cliente["numero"].tolist()
+                        numeros_cliente = [str(n).zfill(3) for n in cliente["numero"].tolist()]
 
                         pdf_bytes = generar_pdf(row['nombre'], row['telefono'], numeros_cliente)
                         st.session_state.pdf_admin = {
@@ -250,37 +263,17 @@ with tab2:
                             "telefono": row['telefono'],
                             "file": pdf_bytes
                         }
-                        st.success(f"Boleto {row['numero']} aprobado")
+                        st.success(f"Boleto {num_formateado} aprobado")
                         st.rerun()
                 
                 with col2:
-                    if st.button(f"❌ Rechazar {row['numero']}", key=f"reject_btn_{row['numero']}_{i}"):
+                    if st.button(f"❌ Rechazar {num_formateado}", key=f"reject_btn_{num_formateado}_{i}"):
                         df_limpio = df.drop(i)
                         guardar(df_limpio)
-                        st.warning(f"Reserva {row['numero']} rechazada")
+                        st.warning(f"Reserva {num_formateado} rechazada")
                         st.rerun()
 
         # ==========================================
-        # NUEVA SECCIÓN: NUEVO VISUALIZADOR DE DATOS
+        # VISUALIZADOR DE DATOS CORREGIDO
         # ==========================================
         st.write("---")
-        st.write("### 👥 Base de Datos de Clientes")
-
-        if df.empty:
-            st.info("Aún no hay ningún registro en la base de datos.")
-        else:
-            # Buscador rápido por nombre, teléfono o número
-            busqueda = st.text_input("🔍 Buscar cliente por nombre, teléfono o número:", key="search_cliente")
-            
-            df_mostrar = df.copy()
-            if busqueda:
-                df_mostrar = df_mostrar[
-                    df_mostrar["nombre"].str.contains(busqueda, case=False, na=False) |
-                    df_mostrar["telefono"].str.contains(busqueda, case=False, na=False) |
-                    df_mostrar["numero"].str.contains(busqueda, case=False, na=False)
-                ]
-
-            # Mostrar la tabla ordenada e interactiva
-            st.dataframe(df_mostrar, use_container_width=True)
-
-            # Botón opcional para descargar todos los datos en Excel
