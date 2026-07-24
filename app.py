@@ -33,11 +33,12 @@ def generar_excel_bytes(dataframe_agenda):
 # BASE DE DATOS ULTRA-RESISTENTE CON RASTREADOR DE SEGURIDAD
 # ========================
 def cargar():
+    # RASTREADOR: Si el archivo principal no aparece, busca copias sueltas en el servidor
     global DB_FILE
     if not os.path.exists(DB_FILE):
         posibles_archivos = [f for f in os.listdir(".") if "rifa" in f and f.endswith(".csv")]
         if posibles_archivos:
-            DB_FILE = posibles_archivos[0]
+            DB_FILE = posibles_archivos[0] # Conecta automáticamente con el archivo viejo encontrado
 
     if not os.path.exists(DB_FILE):
         df = pd.DataFrame(columns=["numero", "nombre", "telefono", "estado"])
@@ -163,9 +164,8 @@ with tab1:
     
     if not df.empty:
         df["numero"] = df["numero"].astype(str).str.zfill(3)
-        # SOLUCIÓN AL PROBLEMA: Leemos "Pendiente" como vendidos para que queden en ROJO al reiniciar
-        vendidos = df[df["estado"] == "Pendiente"]["numero"].tolist()
-        reservados = df[df["estado"] == "Vendido"]["numero"].tolist()
+        vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
+        reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
     else:
         vendidos = []
         reservados = []
@@ -214,7 +214,7 @@ with tab1:
                 st.error("Uno o más números seleccionados ya no están disponibles.")
 
 # ========================
-# PESTAÑA 2: ADMINISTRADOR (RECONSTRUIDO AL 100%)
+# PESTAÑA 2: ADMINISTRADOR
 # ========================
 with tab2:
     st.subheader("🔒 Panel Administrador")
@@ -235,23 +235,6 @@ with tab2:
             st.session_state.pdf_admin = None
             st.rerun()
 
-        # Visualización de la base de datos completa para el administrador
-        st.write("### 📊 Listado de Números Registrados")
-        if not df.empty:
-            st.dataframe(df)
-            
-            # Botón para descargar la tabla en Excel
-            excel_data = generar_excel_bytes(df)
-            st.download_button(
-                label="📥 Descargar Reporte Excel",
-                data=excel_data,
-                file_name="reporte_rifa.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.info("Aún no hay números registrados.")
-
-        # Sección de descarga de comprobante en PDF (líneas que venían cortadas)
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
             st.download_button(
@@ -261,6 +244,42 @@ with tab2:
                 mime="application/pdf",
                 key="download_pdf_btn"
             )
-            if st.button("Limpiar descarga actual", key="clear_pdf"):
+            if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
                 st.session_state.pdf_admin = None
                 st.rerun()
+
+        # Filtro de solicitudes pendientes
+        if not df.empty:
+            pendientes = df[df["estado"] == "Pendiente"]
+        else:
+            pendientes = pd.DataFrame()
+
+        if pendientes.empty:
+            st.info("No hay reservas pendientes de aprobación")
+        else:
+            st.write("### 🟡 Pendientes por Aprobar")
+            for i, row in pendientes.iterrows():
+                num_formateado = str(row['numero']).zfill(3)
+                st.write(f"**Número:** {num_formateado} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.button(f"✅ Aprobar {num_formateado}", key=f"approve_btn_{num_formateado}_{i}"):
+                        df.loc[i, "estado"] = "Vendido"
+                        guardar(df)
+                        
+                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
+                        numeros_cliente = [str(n).zfill(3) for n in cliente["numero"].tolist()]
+
+                        pdf_bytes = generar_pdf(row['nombre'], row['telefono'], numeros_cliente)
+                        st.session_state.pdf_admin = {
+                            "nombre": row['nombre'],
+                            "telefono": row['telefono'],
+                            "file": pdf_bytes
+                        }
+                        st.success(f"Boleto {num_formateado} aprobado")
+                        st.rerun()
+                
+                with col2:
+                    if st.button(f"❌ Rechazar {num_formateado}", key=f"reject_btn_{num_formateado}_{i}"):
+                        df_limpio = df.drop(i)
