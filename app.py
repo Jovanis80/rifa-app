@@ -163,9 +163,9 @@ with tab1:
     
     if not df.empty:
         df["numero"] = df["numero"].astype(str).str.zfill(3)
-        # Extraemos correctamente ambos estados del archivo CSV
-        vendidos = df[df["estado"] == "Vendido"]["numero"].tolist()
-        reservados = df[df["estado"] == "Pendiente"]["numero"].tolist()
+        # SOLUCIÓN AL PROBLEMA: Leemos "Pendiente" como vendidos para que queden en ROJO al reiniciar
+        vendidos = df[df["estado"] == "Pendiente"]["numero"].tolist()
+        reservados = df[df["estado"] == "Vendido"]["numero"].tolist()
     else:
         vendidos = []
         reservados = []
@@ -198,24 +198,23 @@ with tab1:
             for n in numeros:
                 n_str = str(n).zfill(3)
                 if n_str not in df["numero"].tolist():
-                    # CAMBIO CLAVE: Aquí los guardamos directamente como "Vendido" para que salgan en ROJO al reiniciar
                     nuevos.append({
                         "numero": n_str,
                         "nombre": nombre,
                         "telefono": telefono,
-                        "estado": "Vendido"  
+                        "estado": "Pendiente"
                     })
 
             if nuevos:
                 df_actualizado = pd.concat([df, pd.DataFrame(nuevos)], ignore_index=True)
                 guardar(df_actualizado)
-                st.success("✅ ¡Venta guardada con éxito!")
+                st.success("✅ Reserva guardada con éxito")
                 st.rerun()
             else:
                 st.error("Uno o más números seleccionados ya no están disponibles.")
 
 # ========================
-# PESTAÑA 2: ADMINISTRADOR
+# PESTAÑA 2: ADMINISTRADOR (RECONSTRUIDO AL 100%)
 # ========================
 with tab2:
     st.subheader("🔒 Panel Administrador")
@@ -236,6 +235,23 @@ with tab2:
             st.session_state.pdf_admin = None
             st.rerun()
 
+        # Visualización de la base de datos completa para el administrador
+        st.write("### 📊 Listado de Números Registrados")
+        if not df.empty:
+            st.dataframe(df)
+            
+            # Botón para descargar la tabla en Excel
+            excel_data = generar_excel_bytes(df)
+            st.download_button(
+                label="📥 Descargar Reporte Excel",
+                data=excel_data,
+                file_name="reporte_rifa.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.info("Aún no hay números registrados.")
+
+        # Sección de descarga de comprobante en PDF (líneas que venían cortadas)
         if st.session_state.pdf_admin is not None:
             data = st.session_state.pdf_admin
             st.download_button(
