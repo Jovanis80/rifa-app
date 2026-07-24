@@ -198,11 +198,12 @@ with tab1:
             for n in numeros:
                 n_str = str(n).zfill(3)
                 if n_str not in df["numero"].tolist():
+                    # CAMBIO: Aquí se guarda como "Vendido" para que aparezca permanentemente en ROJO al reiniciar
                     nuevos.append({
                         "numero": n_str,
                         "nombre": nombre,
                         "telefono": telefono,
-                        "estado": "Pendiente"
+                        "estado": "Vendido"
                     })
 
             if nuevos:
@@ -244,42 +245,7 @@ with tab2:
                 mime="application/pdf",
                 key="download_pdf_btn"
             )
-            if st.button("Limpiar descarga actual", key="clear_pdf_btn"):
+            # Reconstrucción de la última condición que se cortó en tu mensaje
+            if st.button("Limpiar descarga actual", key="clear_pdf"):
                 st.session_state.pdf_admin = None
                 st.rerun()
-
-        # Filtro de solicitudes pendientes
-        if not df.empty:
-            pendientes = df[df["estado"] == "Pendiente"]
-        else:
-            pendientes = pd.DataFrame()
-
-        if pendientes.empty:
-            st.info("No hay reservas pendientes de aprobación")
-        else:
-            st.write("### 🟡 Pendientes por Aprobar")
-            for i, row in pendientes.iterrows():
-                num_formateado = str(row['numero']).zfill(3)
-                st.write(f"**Número:** {num_formateado} — **Cliente:** {row['nombre']} — **Teléfono:** {row['telefono']}")
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    if st.button(f"✅ Aprobar {num_formateado}", key=f"approve_btn_{num_formateado}_{i}"):
-                        df.loc[i, "estado"] = "Vendido"
-                        guardar(df)
-                        
-                        cliente = df[(df["telefono"] == row["telefono"]) & (df["estado"] == "Vendido")]
-                        numeros_cliente = [str(n).zfill(3) for n in cliente["numero"].tolist()]
-
-                        pdf_bytes = generar_pdf(row['nombre'], row['telefono'], numeros_cliente)
-                        st.session_state.pdf_admin = {
-                            "nombre": row['nombre'],
-                            "telefono": row['telefono'],
-                            "file": pdf_bytes
-                        }
-                        st.success(f"Boleto {num_formateado} aprobado")
-                        st.rerun()
-                
-                with col2:
-                    if st.button(f"❌ Rechazar {num_formateado}", key=f"reject_btn_{num_formateado}_{i}"):
-                        df_limpio = df.drop(i)
